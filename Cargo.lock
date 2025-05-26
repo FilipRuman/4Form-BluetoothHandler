@@ -3,16 +3,6 @@
 version = 4
 
 [[package]]
-name = "BleTest"
-version = "0.1.0"
-dependencies = [
- "btleplug",
- "futures",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -72,6 +62,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c132eebf10f5cad5289222520a4a058514204aed6d791f1cf4fe8088b82d15f"
 dependencies = [
  "objc2",
+]
+
+[[package]]
+name = "bluetooth_handler"
+version = "0.1.0"
+dependencies = [
+ "btleplug",
+ "futures",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
