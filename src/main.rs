@@ -27,6 +27,8 @@ const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
 const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let mut stream = create_stream().await;
+
     let selected_peripheral = handle_peripherals_selection().await;
     selected_peripheral.connect().await?;
     selected_peripheral.discover_services().await?;
@@ -46,7 +48,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     selected_peripheral.subscribe(&data_char).await.unwrap();
     println!("Subscribed to Indoor Bike Data notifications.");
 
-    let mut stream = create_stream().await;
     loop {
         let mut notifications = selected_peripheral.notifications().await?;
 
