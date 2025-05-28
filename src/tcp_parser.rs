@@ -4,6 +4,11 @@ use crate::{handle_smart_trainer_peripheral, tcp};
 use btleplug::{api::Peripheral, platform::PeripheralId};
 use regex::{self, Regex};
 use tokio::net::TcpStream;
+
+pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
+    tcp::send_tcp_data(stream, format!("p{}", power)).await;
+    tcp::send_tcp_data(stream, format!("c{}", cadence)).await;
+}
 pub async fn send_peripherals(
     stream: &mut TcpStream,
     old_peripherals_len: &mut usize,
@@ -40,6 +45,34 @@ pub fn handle_data_input_from_tcp(
 ) {
     let mut chars = data.chars();
     match chars.next().unwrap() {
+        'i' => {
+            handle_parsing_peripherial_connection(data, peripherals, stream);
+        }
         _ => {}
+    }
+}
+
+fn handle_parsing_peripherial_connection(
+    data: String,
+    peripherials: &[btleplug::platform::Peripheral],
+    stream: &mut TcpStream,
+) {
+    println!("handle_parsing_smart_trainer");
+
+    // extracts name and index from data: i|Smart trainer|[3]
+    let regex = Regex::new(r"\|(?<name>.*)\|\[(?<index>.*)\]").unwrap();
+    let Some(captures) = regex.captures(&data) else {
+        return;
+    };
+    let device_type_name = &captures["name"];
+    let device_index: usize = captures["index"].parse().unwrap();
+    let peripheral = &peripherials[device_index];
+    match device_type_name {
+        "smart trainer" => {
+            handle_smart_trainer_peripheral(stream, peripheral);
+        }
+        default => {
+            panic!("device type not found! {:?}", default);
+        }
     }
 }
