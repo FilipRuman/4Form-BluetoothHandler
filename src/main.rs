@@ -44,6 +44,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .await;
         old_peripherals_len = peripherals.len();
+        let tcp_output = read_tcp_data(&mut stream);
+        println!("tcp_output {:?} \n \n ", tcp_output);
     }
 
     Ok(())
