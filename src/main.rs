@@ -36,6 +36,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         let peripherals = handle_scanning_for_peripherals(&adapter).await;
 
+        tcp_parser::send_peripherals(
+            &mut stream,
+            &mut old_peripherals_len,
+            &peripherals,
+            &mut old_peripherals_id,
+        )
+        .await;
+        old_peripherals_len = peripherals.len();
     }
 
     Ok(())
