@@ -28,13 +28,18 @@ const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut stream = create_stream().await;
+    let adapter = start_scan().await;
+    //TODO: Add error handler + logger and remove unwrap
 
-    let selected_peripheral = handle_peripherals_selection().await;
-    selected_peripheral.connect().await?;
-    selected_peripheral.discover_services().await?;
+    let mut old_peripherals_len = 0;
+    let mut old_peripherals_id = HashSet::new();
+    loop {
+        let peripherals = handle_scanning_for_peripherals(&adapter).await;
 
-    println!("Connected!");
+    }
 
+    Ok(())
+}
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &selected_peripheral);
     let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &selected_peripheral);
 
