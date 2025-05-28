@@ -71,8 +71,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("Send all data over tcp!");
         }
     }
+async fn start_scan() -> Adapter {
+    let manager = Manager::new().await.unwrap();
+    // get the first bluetooth adapter
+    let adapters = manager.adapters().await.unwrap();
+    let central = adapters.into_iter().next().unwrap();
 
-    Ok(())
+    central.start_scan(ScanFilter::default()).await.unwrap();
+
+    println!("started scanning");
+    central
 }
 async fn set_target_power(
     target_power: u16,
@@ -93,30 +101,14 @@ async fn set_target_power(
         Err(e) => println!("Write failed: {:?}", e),
     }
 }
-async fn handle_peripherals_selection() -> Peripheral {
-    let manager = Manager::new().await.unwrap();
 
-    // get the first bluetooth adapter
-    let adapters = manager.adapters().await.unwrap();
-    let central = adapters.into_iter().next().unwrap();
-
-    central.start_scan(ScanFilter::default()).await.unwrap();
+async fn handle_scanning_for_peripherals(adapter: &Adapter) -> Vec<Peripheral> {
     // wait a bit to scan
     time::sleep(Duration::from_secs(1)).await;
-
-    let peripherals = central.peripherals().await.unwrap();
-    let mut i = 0;
-    for peripheral in &peripherals {
-        println!("{i}: {} ", peripheral);
-        i += 1;
-    }
-    println!("enter peripheral index");
-    let mut buffer = String::new();
-
-    stdin().read_line(&mut buffer).unwrap();
-    let index = buffer.trim().parse::<usize>().unwrap();
-    peripherals[index].to_owned()
+    println!("scan for peripherals ended");
+    adapter.peripherals().await.unwrap()
 }
+
 fn get_characteristic_with_uuid(uuid: Uuid, peripheral: &Peripheral) -> Characteristic {
     peripheral
         .characteristics()
