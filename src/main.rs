@@ -54,6 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
 pub async fn handle_smart_trainer_peripheral(
     stream: &mut TcpStream,
     selected_peripheral: &Peripheral,
