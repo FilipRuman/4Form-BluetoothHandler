@@ -1,5 +1,6 @@
 mod logger;
 mod tcp;
+mod tcp_parser;
 
 use btleplug::api::CharPropFlags;
 use btleplug::api::Characteristic;
@@ -10,11 +11,14 @@ use btleplug::api::{
 use btleplug::platform::{Adapter, Manager, Peripheral};
 
 use futures::stream::StreamExt;
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::stdin;
 use std::time::Duration;
 use tcp::create_stream;
+use tcp::read_tcp_data;
 use tcp::send_tcp_data;
+use tokio::net::TcpStream;
 use tokio::time;
 use uuid::Uuid;
 
@@ -50,6 +54,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+pub async fn handle_smart_trainer_peripheral(
+    stream: &mut TcpStream,
+    selected_peripheral: &Peripheral,
+) {
+    println!("Connected smart trainer!");
+
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &selected_peripheral);
     let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &selected_peripheral);
 
@@ -58,13 +68,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let start_cmd = vec![0x07]; // 0x07 = Start or Resume Training
     selected_peripheral
         .write(&control_char, &start_cmd, WriteType::WithResponse)
-        .await?;
+        .await
+        .unwrap();
 
     selected_peripheral.subscribe(&data_char).await.unwrap();
     println!("Subscribed to Indoor Bike Data notifications.");
 
     loop {
-        let mut notifications = selected_peripheral.notifications().await?;
+        let mut notifications = selected_peripheral.notifications().await.unwrap();
 
         println!("Waiting for data...");
 
@@ -74,13 +85,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 "output_data: current_power: {} cadence: {}",
                 output_data.current_power, output_data.cadence
             );
-
-            send_tcp_data(&mut stream, format!("p{}", output_data.current_power)).await;
-            send_tcp_data(&mut stream, format!("c{}", output_data.cadence)).await;
+            tcp_parser::send_bike_trainer_data(
+                stream,
+                output_data.current_power,
+                output_data.cadence,
+            )
+            .await;
 
             println!("Send all data over tcp!");
         }
     }
+}
 async fn start_scan() -> Adapter {
     let manager = Manager::new().await.unwrap();
     // get the first bluetooth adapter
@@ -91,6 +106,10 @@ async fn start_scan() -> Adapter {
 
     println!("started scanning");
     central
+}
+async fn connect_to_peripheral(selected_peripheral: Peripheral) {
+    selected_peripheral.connect().await.unwrap();
+    selected_peripheral.discover_services().await.unwrap();
 }
 async fn set_target_power(
     target_power: u16,
