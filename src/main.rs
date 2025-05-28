@@ -49,7 +49,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await;
         old_peripherals_len = peripherals.len();
         let tcp_output = read_tcp_data(&mut stream);
-        println!("tcp_output {:?} \n \n ", tcp_output);
+        match tcp_output {
+            Some(data) => {
+                println!("tcp_output {:?} \n \n ", data);
+                tcp_parser::handle_data_input_from_tcp(data, &peripherals, &mut stream);
+            }
+            None => println!("tcp_output None \n \n "),
+        }
     }
 
     Ok(())
