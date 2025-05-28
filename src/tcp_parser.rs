@@ -33,3 +33,13 @@ pub async fn send_peripherals(
         );
     }
 }
+pub fn handle_data_input_from_tcp(
+    data: String,
+    peripherals: &[btleplug::platform::Peripheral],
+    stream: &mut TcpStream,
+) {
+    let mut chars = data.chars();
+    match chars.next().unwrap() {
+        _ => {}
+    }
+}
