@@ -46,15 +46,15 @@ pub fn handle_data_input_from_tcp(
     let mut chars = data.chars();
     match chars.next().unwrap() {
         'i' => {
-            handle_parsing_peripherial_connection(data, peripherals, stream);
+            handle_parsing_peripheral_connection(data, peripherals, stream);
         }
         _ => {}
     }
 }
 
-fn handle_parsing_peripherial_connection(
+fn handle_parsing_peripheral_connection(
     data: String,
-    peripherials: &[btleplug::platform::Peripheral],
+    peripherals: &[btleplug::platform::Peripheral],
     stream: &mut TcpStream,
 ) {
     println!("handle_parsing_smart_trainer");
@@ -66,7 +66,7 @@ fn handle_parsing_peripherial_connection(
     };
     let device_type_name = &captures["name"];
     let device_index: usize = captures["index"].parse().unwrap();
-    let peripheral = &peripherials[device_index];
+    let peripheral = &peripherals[device_index];
     match device_type_name {
         "smart trainer" => {
             ble_device_handlers::smart_bike_trainer::handle_smart_trainer_peripheral(
