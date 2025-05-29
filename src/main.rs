@@ -10,13 +10,12 @@ use tcp::read_tcp_data;
 #[tokio::main]
 async fn main() {
     let mut stream = create_stream().await;
-    let adapter = ble_device_handlers::general::start_scan().await;
+    let adapter = ble_device_handlers::start_scan().await;
 
     let mut old_peripherals_len = 0;
     let mut old_peripherals_id = HashSet::new();
     loop {
-        let peripherals =
-            ble_device_handlers::general::handle_scanning_for_peripherals(&adapter).await;
+        let peripherals = ble_device_handlers::handle_scanning_for_peripherals(&adapter).await;
 
         tcp_parser::send_peripherals(
             &mut stream,

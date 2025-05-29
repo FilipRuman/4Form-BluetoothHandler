@@ -3,10 +3,7 @@ use futures::StreamExt;
 use tokio::net::TcpStream;
 use uuid::Uuid;
 
-use crate::{
-    ble_device_handlers::{self, general},
-    tcp_parser,
-};
+use crate::{ble_device_handlers::*, tcp_parser};
 
 pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16) {
     println!("data: {:?}", data);
@@ -30,8 +27,8 @@ pub async fn handle_smart_trainer_peripheral(
 ) {
     println!("Connected smart trainer!");
 
-    let control_char = general::get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral);
-    let data_char = general::get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &peripheral);
+    let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral);
+    let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &peripheral);
 
     // default_log("Created characteristics", LogPriority::Stage);
 
@@ -50,9 +47,7 @@ pub async fn handle_smart_trainer_peripheral(
         println!("Waiting for data...");
 
         while let Some(notification) = notifications.next().await {
-            let output_data = ble_device_handlers::smart_bike_trainer::parse_indoor_bike_data(
-                &notification.value,
-            );
+            let output_data = parse_indoor_bike_data(&notification.value);
             let current_power = output_data.0;
             let cadence = output_data.1;
 
