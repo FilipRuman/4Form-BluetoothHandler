@@ -17,3 +17,12 @@ impl LogPriority {
             LogPriority::Stage => format!("\n#### {} [Stg]: {}\n", time, text),
         }
     }
+    pub fn format_println_text(&self, text: &String) -> ColoredString {
+        match self {
+            LogPriority::Error => format!("Err]: {text} ").red(),
+            LogPriority::Info => format!("[Inf]: {text} ").blue(),
+            LogPriority::Warning => format!("[Warn]: {text} ").yellow(),
+            LogPriority::Stage => format!("\n [Stg]: {text} \n").green(),
+        }
+    }
+}
