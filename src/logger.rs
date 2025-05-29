@@ -7,3 +7,13 @@ pub enum LogPriority {
     Warning,
     Stage,
 }
+impl LogPriority {
+    pub fn markdown_formatting(&self, text: &String) -> String {
+        let time = chrono::offset::Local::now().format("%d-%b %H:%M");
+        match self {
+            LogPriority::Error => format!("# {} [Err]: {}", time, text),
+            LogPriority::Info => format!("### {} [Inf]: {}", time, text),
+            LogPriority::Warning => format!("## {} [Warn]: {}", time, text),
+            LogPriority::Stage => format!("\n#### {} [Stg]: {}\n", time, text),
+        }
+    }
