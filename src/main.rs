@@ -10,6 +10,8 @@ use btleplug::api::{
 use btleplug::platform::{Adapter, Manager, Peripheral};
 
 use futures::stream::StreamExt;
+use logger::LogPriority;
+use logger::default_log;
 use std::error::Error;
 use std::io::stdin;
 use std::time::Duration;
@@ -33,12 +35,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     selected_peripheral.connect().await?;
     selected_peripheral.discover_services().await?;
 
-    println!("Connected!");
+    default_log("connected", LogPriority::Stage);
 
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &selected_peripheral);
     let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &selected_peripheral);
 
-    println!("Created characteristics");
+    default_log("Created characteristics", LogPriority::Stage);
 
     let start_cmd = vec![0x07]; // 0x07 = Start or Resume Training
     selected_peripheral
