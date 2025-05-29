@@ -11,23 +11,76 @@ impl LogPriority {
     pub fn markdown_formatting(&self, text: &String) -> String {
         let time = chrono::offset::Local::now().format("%d-%b %H:%M");
         match self {
-            LogPriority::Error => format!("# {} [Err]: {}", time, text),
-            LogPriority::Info => format!("### {} [Inf]: {}", time, text),
-            LogPriority::Warning => format!("## {} [Warn]: {}", time, text),
-            LogPriority::Stage => format!("\n#### {} [Stg]: {}\n", time, text),
+            LogPriority::Error => {
+                if LOG_ERROR {
+                    format!("# {} [Err]: {}\n", time, text)
+                } else {
+                    String::new()
+                }
+            }
+            LogPriority::Info => {
+                if LOG_INFO {
+                    format!("### {} [Inf]: {}\n", time, text)
+                } else {
+                    String::new()
+                }
+            }
+            LogPriority::Warning => {
+                if LOG_WARNING {
+                    format!("## {} [Warn]: {}\n", time, text)
+                } else {
+                    String::new()
+                }
+            }
+            LogPriority::Stage => {
+                if LOG_STAGE {
+                    format!("\n#### {} [Stg]: {}\n\n", time, text)
+                } else {
+                    String::new()
+                }
+            }
         }
     }
     pub fn format_println_text(&self, text: &String) -> ColoredString {
         match self {
-            LogPriority::Error => format!("Err]: {text} ").red(),
-            LogPriority::Info => format!("[Inf]: {text} ").blue(),
-            LogPriority::Warning => format!("[Warn]: {text} ").yellow(),
-            LogPriority::Stage => format!("\n [Stg]: {text} \n").green(),
+            LogPriority::Error => {
+                if LOG_ERROR {
+                    format!("[Err]: {}", text).red()
+                } else {
+                    "".clear()
+                }
+            }
+            LogPriority::Info => {
+                if LOG_INFO {
+                    format!("[Inf]: {}", text).blue()
+                } else {
+                    "".clear()
+                }
+            }
+            LogPriority::Warning => {
+                if LOG_WARNING {
+                    format!("[Warn]: {}", text).yellow()
+                } else {
+                    "".clear()
+                }
+            }
+            LogPriority::Stage => {
+                if LOG_STAGE {
+                    format!("[Stg]: {}", text).green()
+                } else {
+                    "".clear()
+                }
+            }
         }
     }
 }
 pub const LOG_FILE_PATH: &str = "./../Logs.md";
 pub const SHOW_ERRORS_THRU_PRINTLN: bool = true;
+// log levels
+pub const LOG_INFO: bool = true;
+pub const LOG_WARNING: bool = true;
+pub const LOG_STAGE: bool = true;
+pub const LOG_ERROR: bool = true;
 
 // this is not the most efficient but clean!
 pub fn default_log(value: String, priority: LogPriority) {
@@ -48,5 +101,5 @@ fn save_text_to_log_file(text: String) {
             &LOG_FILE_PATH
         ));
 
-    file.write_all((text + "\n").as_bytes()).unwrap();
+    file.write_all((text).as_bytes()).unwrap();
 }
