@@ -10,6 +10,8 @@ use btleplug::api::{
 use btleplug::platform::{Adapter, Manager, Peripheral};
 
 use futures::stream::StreamExt;
+use logger::LogPriority;
+use logger::default_log;
 use std::error::Error;
 use std::io::stdin;
 use std::time::Duration;
