@@ -12,6 +12,9 @@ use btleplug::platform::{Adapter, Manager, Peripheral};
 
 use futures::stream::StreamExt;
 use std::collections::HashSet;
+
+use logger::LogPriority;
+use logger::default_log;
 use std::error::Error;
 use std::io::stdin;
 use std::time::Duration;
@@ -67,10 +70,11 @@ pub async fn handle_smart_trainer_peripheral(
 ) {
     println!("Connected smart trainer!");
 
+
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &selected_peripheral);
     let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &selected_peripheral);
 
-    println!("Created characteristics");
+    default_log("Created characteristics", LogPriority::Stage);
 
     let start_cmd = vec![0x07]; // 0x07 = Start or Resume Training
     selected_peripheral

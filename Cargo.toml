@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 btleplug = "0.11.8"
+chrono = "0.4.41"
+colored = "3.0.0"
 futures = "0.3.31"
 regex = "1.11.1"
 tokio = { version = "1.45.0", features = ["full"] }
