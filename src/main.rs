@@ -1,5 +1,6 @@
 mod logger;
 mod tcp;
+mod tcp_parser;
 
 use btleplug::api::CharPropFlags;
 use btleplug::api::Characteristic;
@@ -10,13 +11,17 @@ use btleplug::api::{
 use btleplug::platform::{Adapter, Manager, Peripheral};
 
 use futures::stream::StreamExt;
+use std::collections::HashSet;
+
 use logger::LogPriority;
 use logger::default_log;
 use std::error::Error;
 use std::io::stdin;
 use std::time::Duration;
 use tcp::create_stream;
+use tcp::read_tcp_data;
 use tcp::send_tcp_data;
+use tokio::net::TcpStream;
 use tokio::time;
 use uuid::Uuid;
 
@@ -30,12 +35,41 @@ const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut stream = create_stream().await;
+    let adapter = start_scan().await;
+    //TODO: Add error handler + logger and remove unwrap
 
-    let selected_peripheral = handle_peripherals_selection().await;
-    selected_peripheral.connect().await?;
-    selected_peripheral.discover_services().await?;
+    let mut old_peripherals_len = 0;
+    let mut old_peripherals_id = HashSet::new();
+    loop {
+        let peripherals = handle_scanning_for_peripherals(&adapter).await;
 
-    default_log("connected", LogPriority::Stage);
+        tcp_parser::send_peripherals(
+            &mut stream,
+            &mut old_peripherals_len,
+            &peripherals,
+            &mut old_peripherals_id,
+        )
+        .await;
+        old_peripherals_len = peripherals.len();
+        let tcp_output = read_tcp_data(&mut stream);
+        match tcp_output {
+            Some(data) => {
+                println!("tcp_output {:?} \n \n ", data);
+                tcp_parser::handle_data_input_from_tcp(data, &peripherals, &mut stream);
+            }
+            None => println!("tcp_output None \n \n "),
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn handle_smart_trainer_peripheral(
+    stream: &mut TcpStream,
+    selected_peripheral: &Peripheral,
+) {
+    println!("Connected smart trainer!");
+
 
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &selected_peripheral);
     let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &selected_peripheral);
@@ -45,13 +79,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let start_cmd = vec![0x07]; // 0x07 = Start or Resume Training
     selected_peripheral
         .write(&control_char, &start_cmd, WriteType::WithResponse)
-        .await?;
+        .await
+        .unwrap();
 
     selected_peripheral.subscribe(&data_char).await.unwrap();
     println!("Subscribed to Indoor Bike Data notifications.");
 
     loop {
-        let mut notifications = selected_peripheral.notifications().await?;
+        let mut notifications = selected_peripheral.notifications().await.unwrap();
 
         println!("Waiting for data...");
 
@@ -61,15 +96,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 "output_data: current_power: {} cadence: {}",
                 output_data.current_power, output_data.cadence
             );
-
-            send_tcp_data(&mut stream, format!("p{}", output_data.current_power)).await;
-            send_tcp_data(&mut stream, format!("c{}", output_data.cadence)).await;
+            tcp_parser::send_bike_trainer_data(
+                stream,
+                output_data.current_power,
+                output_data.cadence,
+            )
+            .await;
 
             println!("Send all data over tcp!");
         }
     }
+}
+async fn start_scan() -> Adapter {
+    let manager = Manager::new().await.unwrap();
+    // get the first bluetooth adapter
+    let adapters = manager.adapters().await.unwrap();
+    let central = adapters.into_iter().next().unwrap();
 
-    Ok(())
+    central.start_scan(ScanFilter::default()).await.unwrap();
+
+    println!("started scanning");
+    central
+}
+async fn connect_to_peripheral(selected_peripheral: Peripheral) {
+    selected_peripheral.connect().await.unwrap();
+    selected_peripheral.discover_services().await.unwrap();
 }
 async fn set_target_power(
     target_power: u16,
@@ -90,30 +141,14 @@ async fn set_target_power(
         Err(e) => println!("Write failed: {:?}", e),
     }
 }
-async fn handle_peripherals_selection() -> Peripheral {
-    let manager = Manager::new().await.unwrap();
 
-    // get the first bluetooth adapter
-    let adapters = manager.adapters().await.unwrap();
-    let central = adapters.into_iter().next().unwrap();
-
-    central.start_scan(ScanFilter::default()).await.unwrap();
+async fn handle_scanning_for_peripherals(adapter: &Adapter) -> Vec<Peripheral> {
     // wait a bit to scan
     time::sleep(Duration::from_secs(1)).await;
-
-    let peripherals = central.peripherals().await.unwrap();
-    let mut i = 0;
-    for peripheral in &peripherals {
-        println!("{i}: {} ", peripheral);
-        i += 1;
-    }
-    println!("enter peripheral index");
-    let mut buffer = String::new();
-
-    stdin().read_line(&mut buffer).unwrap();
-    let index = buffer.trim().parse::<usize>().unwrap();
-    peripherals[index].to_owned()
+    println!("scan for peripherals ended");
+    adapter.peripherals().await.unwrap()
 }
+
 fn get_characteristic_with_uuid(uuid: Uuid, peripheral: &Peripheral) -> Characteristic {
     peripheral
         .characteristics()
