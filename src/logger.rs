@@ -26,3 +26,27 @@ impl LogPriority {
         }
     }
 }
+pub const LOG_FILE_PATH: &str = "./../Logs.md";
+pub const SHOW_ERRORS_THRU_PRINTLN: bool = true;
+
+// this is not the most efficient but clean!
+pub fn default_log(value: String, priority: LogPriority) {
+    if SHOW_ERRORS_THRU_PRINTLN {
+        println!("{}", priority.format_println_text(&value));
+    }
+    save_text_to_log_file(priority.markdown_formatting(&value));
+}
+
+fn save_text_to_log_file(text: String) {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(&LOG_FILE_PATH)
+        .expect(&format!(
+            "path for logging file:{} was not correct!",
+            &LOG_FILE_PATH
+        ));
+
+    file.write_all((text + "\n").as_bytes()).unwrap();
+}
