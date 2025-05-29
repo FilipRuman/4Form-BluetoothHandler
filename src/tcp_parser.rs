@@ -1,6 +1,6 @@
 use std::{collections::HashSet, default, thread::sleep, time::Duration};
 
-use crate::{handle_smart_trainer_peripheral, tcp};
+use crate::{ble_device_handlers, tcp};
 use btleplug::{api::Peripheral, platform::PeripheralId};
 use regex::{self, Regex};
 use tokio::net::TcpStream;
@@ -69,7 +69,9 @@ fn handle_parsing_peripherial_connection(
     let peripheral = &peripherials[device_index];
     match device_type_name {
         "smart trainer" => {
-            handle_smart_trainer_peripheral(stream, peripheral);
+            ble_device_handlers::smart_bike_trainer::handle_smart_trainer_peripheral(
+                stream, peripheral,
+            );
         }
         default => {
             panic!("device type not found! {:?}", default);
