@@ -3,24 +3,14 @@ mod logger;
 mod tcp;
 mod tcp_parser;
 
-use btleplug::api::Characteristic;
-
-use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
-use btleplug::platform::{Adapter, Manager, Peripheral};
-
 use std::collections::HashSet;
-
-use std::time::Duration;
 use tcp::create_stream;
 use tcp::read_tcp_data;
-use tokio::time;
-use uuid::Uuid;
 
 #[tokio::main]
 async fn main() {
     let mut stream = create_stream().await;
     let adapter = ble_device_handlers::general::start_scan().await;
-    //TODO: Add error handler + logger and remove unwrap
 
     let mut old_peripherals_len = 0;
     let mut old_peripherals_id = HashSet::new();
