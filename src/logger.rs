@@ -1,6 +1,8 @@
 use chrono;
 use colored::{self, ColoredString, Colorize};
 use std::{fs::OpenOptions, io::Write, time};
+
+#[derive(PartialEq)]
 pub enum LogPriority {
     Error,
     Info,
@@ -8,82 +10,45 @@ pub enum LogPriority {
     Stage,
 }
 impl LogPriority {
-    pub fn markdown_formatting(&self, text: &String) -> String {
-        let time = chrono::offset::Local::now().format("%d-%b %H:%M");
+    pub fn markdown_formatting(&self, text: &str) -> String {
         match self {
             LogPriority::Error => {
-                if LOG_ERROR {
-                    format!("# {} [Err]: {}\n", time, text)
-                } else {
-                    String::new()
-                }
+                format!("# {} [Err]: {}\n", time, text)
             }
             LogPriority::Info => {
-                if LOG_INFO {
-                    format!("### {} [Inf]: {}\n", time, text)
-                } else {
-                    String::new()
-                }
+                format!("### {} [Inf]: {}\n", time, text)
             }
             LogPriority::Warning => {
-                if LOG_WARNING {
-                    format!("## {} [Warn]: {}\n", time, text)
-                } else {
-                    String::new()
-                }
+                format!("## {} [Warn]: {}\n", time, text)
             }
             LogPriority::Stage => {
-                if LOG_STAGE {
-                    format!("\n#### {} [Stg]: {}\n\n", time, text)
-                } else {
-                    String::new()
-                }
+                format!("\n#### {} [Stg]: {}\n\n", time, text)
             }
         }
     }
-    pub fn format_println_text(&self, text: &String) -> ColoredString {
+    pub fn format_println_text(&self, text: &str) -> ColoredString {
         match self {
-            LogPriority::Error => {
-                if LOG_ERROR {
-                    format!("[Err]: {}", text).red()
-                } else {
-                    "".clear()
-                }
-            }
-            LogPriority::Info => {
-                if LOG_INFO {
-                    format!("[Inf]: {}", text).blue()
-                } else {
-                    "".clear()
-                }
-            }
-            LogPriority::Warning => {
-                if LOG_WARNING {
-                    format!("[Warn]: {}", text).yellow()
-                } else {
-                    "".clear()
-                }
-            }
-            LogPriority::Stage => {
-                if LOG_STAGE {
-                    format!("[Stg]: {}", text).green()
-                } else {
-                    "".clear()
-                }
-            }
+            LogPriority::Error => format!("[Err]: {}", text).red(),
+            LogPriority::Info => format!("[Inf]: {}", text).blue(),
+            LogPriority::Warning => format!("[Warn]: {}", text).yellow(),
+            LogPriority::Stage => format!("[Stg]: {}", text).green(),
         }
     }
 }
-pub const LOG_FILE_PATH: &str = "./../Logs.md";
+pub const LOG_FILE_PATH: &str = "./Logs.md";
 pub const SHOW_ERRORS_THRU_PRINTLN: bool = true;
-// log levels
-pub const LOG_INFO: bool = true;
-pub const LOG_WARNING: bool = true;
-pub const LOG_STAGE: bool = true;
-pub const LOG_ERROR: bool = true;
-
+// hashset would be faster but I'd have to use constant one from crate
+pub const LOG_LEVEL: [LogPriority; 4] = [
+    LogPriority::Warning,
+    LogPriority::Stage,
+    LogPriority::Info,
+    LogPriority::Error,
+];
 // this is not the most efficient but clean!
-pub fn default_log(value: String, priority: LogPriority) {
+pub fn default_log(value: &str, priority: LogPriority) {
+    if !LOG_LEVEL.contains(&priority) {
+        return;
+    }
     if SHOW_ERRORS_THRU_PRINTLN {
         println!("{}", priority.format_println_text(&value));
     }
