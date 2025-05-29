@@ -1,3 +1,9 @@
-// Todo
-pub enum LogPriority {}
-pub fn default_log(value: String, priority: LogPriority) {}
+use chrono;
+use colored::{self, ColoredString, Colorize};
+use std::{fs::OpenOptions, io::Write, time};
+pub enum LogPriority {
+    Error,
+    Info,
+    Warning,
+    Stage,
+}
