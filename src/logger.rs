@@ -11,6 +11,7 @@ pub enum LogPriority {
 }
 impl LogPriority {
     pub fn markdown_formatting(&self, text: &str) -> String {
+        let time = chrono::offset::Local::now().format("%d %H:%M");
         match self {
             LogPriority::Error => {
                 format!("# {} [Err]: {}\n", time, text)
