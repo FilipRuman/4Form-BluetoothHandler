@@ -1,21 +1,35 @@
 mod ble_device_handlers;
-mod logger;
+mod logs;
 mod tcp;
 mod tcp_parser;
-
+use spdlog::prelude::*;
 use std::collections::HashSet;
 use tcp::create_stream;
 use tcp::read_tcp_data;
-
 #[tokio::main]
 async fn main() {
-    let mut stream = create_stream().await;
-    let adapter = ble_device_handlers::start_scan().await;
+    logs::setup_logger();
+    info!("Init rust ble handler");
+
+    let mut stream = match create_stream().await {
+        Ok(o) => o,
+        Err(e) => {
+            error!("creating tcp listener did not succeed because:{e:?}");
+            panic!()
+        }
+    };
+    let adapter = match ble_device_handlers::start_scan().await {
+        Ok(o) => o,
+        Err(e) => {
+            error!("scanning for peripherials did not succeed because:{e:?}");
+            panic!()
+        }
+    };
 
     let mut old_peripherals_len = 0;
     let mut old_peripherals_id = HashSet::new();
     loop {
-        let peripherals = ble_device_handlers::handle_scanning_for_peripherals(&adapter).await;
+        let peripherals = ble_device_handlers::get_found_peripherials(&adapter).await;
 
         tcp_parser::send_peripherals(
             &mut stream,
@@ -26,12 +40,13 @@ async fn main() {
         .await;
         old_peripherals_len = peripherals.len();
         let tcp_output = read_tcp_data(&mut stream);
+
         match tcp_output {
             Some(data) => {
-                println!("tcp_output {:?} \n \n ", data);
+                // println!("tcp_output {:?} \n \n ", data);
                 tcp_parser::handle_data_input_from_tcp(data, &peripherals, &mut stream);
             }
-            None => println!("tcp_output None \n \n "),
+            None => {}
         }
     }
 }
