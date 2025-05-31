@@ -1,12 +1,12 @@
 use spdlog::{
-    formatter::{self, FullFormatter, PatternFormatter, pattern},
+    formatter::{PatternFormatter, pattern},
     prelude::*,
-    sink::{AsyncPoolSink, FileSink, RotatingFileSink, Sink, StdStream, StdStreamSink},
+    sink::{AsyncPoolSink, RotatingFileSink, Sink, StdStream, StdStreamSink},
 };
-use std::sync::Arc;
+use std::{env, sync::Arc};
 pub fn setup_logger() {
     // maybe later add rotating logs support
-    let path = "logs/log.log";
+    let path = env::current_exe().unwrap().with_file_name("logs/log.log");
 
     let formatter = Box::new(PatternFormatter::new(pattern!(
         "{time} [{^{level}}] {payload}{eol}"
