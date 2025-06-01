@@ -24,7 +24,8 @@ pub fn read_tcp_data(stream: &mut TcpStream) -> Option<String> {
         Err(_) => None,
     }
 }
-pub async fn send_tcp_data(stream: &mut TcpStream, data: String) {
+pub async fn send_tcp_data(stream: &mut TcpStream, mut data: String) {
+    data += "\n";
     match stream.write_all(data.as_bytes()).await {
         Ok(out) => out,
         Err(err) => {
