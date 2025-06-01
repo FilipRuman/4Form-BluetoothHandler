@@ -35,6 +35,7 @@ async fn main() {
     let mut devices: Vec<BleDevice> = Vec::new();
     loop {
         let peripherals = ble_device_handlers::get_found_peripherals(&adapter).await;
+
         ble_device_handlers::handle_devices(&devices, &valid_peripherals, &mut stream).await;
 
         tcp_parser::send_peripherals(
