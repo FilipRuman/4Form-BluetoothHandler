@@ -29,7 +29,7 @@ async fn main() {
     let mut old_peripherals_len = 0;
     let mut old_peripherals_id = HashSet::new();
     loop {
-        let peripherals = ble_device_handlers::get_found_peripherials(&adapter).await;
+        let peripherals = ble_device_handlers::get_found_peripherals(&adapter).await;
 
         tcp_parser::send_peripherals(
             &mut stream,

@@ -42,7 +42,7 @@ pub async fn connect_to_peripheral(selected_peripheral: btleplug::platform::Peri
     }
 }
 
-pub async fn get_found_peripherials(adapter: &Adapter) -> Vec<btleplug::platform::Peripheral> {
+pub async fn get_found_peripherals(adapter: &Adapter) -> Vec<btleplug::platform::Peripheral> {
     // wait a bit to scan
     time::sleep(Duration::from_secs(1)).await;
     adapter.peripherals().await.unwrap()
