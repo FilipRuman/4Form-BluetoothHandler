@@ -54,25 +54,32 @@ pub async fn send_peripherals(
     }
 }
 
-pub fn handle_data_input_from_tcp(
-    data: String,
-    peripherals: &[btleplug::platform::Peripheral],
-    stream: &mut TcpStream,
-) {
-    if data.is_empty() {
-        return;
+pub async fn handle_data_input_from_tcp(
+    data: &str,
+    valid_peripherals: &[btleplug::platform::Peripheral],
+) -> Option<BleDevice> {
+    if data.is_empty() || data.starts_with('\0') {
+        return None;
     }
 
     let mut chars = data.chars();
 
+    info!("parsing data from tcp: {}", data);
+
     // this would only fail if len == 0 but it is checked
+
     match chars.next().unwrap() {
-        'i' => {
-            if let Err(error) = handle_parsing_peripheral_connection(data, peripherals, stream) {
-                error!("handling parsing peripheral: {error}")
-            };
+        'i' => match handle_parsing_peripheral_connection(data, valid_peripherals).await {
+            Ok(option_value) => option_value,
+            Err(error) => {
+                error!("handling parsing peripheral: {error}");
+                None
+            }
+        },
+        _ => {
+            warn!("tcp input type not found");
+            None
         }
-        _ => {}
     }
 }
 
