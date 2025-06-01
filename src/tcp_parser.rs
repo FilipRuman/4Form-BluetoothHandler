@@ -1,8 +1,10 @@
-use std::{collections::HashSet, default, thread::sleep, time::Duration};
+use std::{collections::HashSet, default, error, thread::sleep, time::Duration};
 
 use crate::{ble_device_handlers, tcp};
+use anyhow::{Context, Error, Result};
 use btleplug::{api::Peripheral, platform::PeripheralId};
 use regex::{self, Regex};
+use spdlog::prelude::*;
 use tokio::net::TcpStream;
 
 pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
@@ -20,7 +22,16 @@ pub async fn send_peripherals(
         if !old_peripherals_ids.insert(peripheral.id()) {
             continue;
         }
-        let properties = peripheral.properties().await.unwrap().unwrap();
+        let properties = match peripheral.properties().await {
+            Ok(o) => o.unwrap(),
+            Err(e) => {
+                error!(
+                    "getting peripheral properties was not possible because: {}",
+                    e
+                );
+                continue;
+            }
+        };
 
         let name = match properties.local_name {
             Some(txt) => txt,
@@ -38,15 +49,24 @@ pub async fn send_peripherals(
         );
     }
 }
+
 pub fn handle_data_input_from_tcp(
     data: String,
     peripherals: &[btleplug::platform::Peripheral],
     stream: &mut TcpStream,
 ) {
+    if data.is_empty() {
+        return;
+    }
+
     let mut chars = data.chars();
+
+    // this would only fail if len == 0 but it is checked
     match chars.next().unwrap() {
         'i' => {
-            handle_parsing_peripheral_connection(data, peripherals, stream);
+            if let Err(error) = handle_parsing_peripheral_connection(data, peripherals, stream) {
+                error!("handling parsing peripheral: {error}")
+            };
         }
         _ => {}
     }
@@ -56,25 +76,27 @@ fn handle_parsing_peripheral_connection(
     data: String,
     peripherals: &[btleplug::platform::Peripheral],
     stream: &mut TcpStream,
-) {
+) -> Result<()> {
     println!("handle_parsing_smart_trainer");
 
     // extracts name and index from data: i|Smart trainer|[3]
     let regex = Regex::new(r"\|(?<name>.*)\|\[(?<index>.*)\]").unwrap();
     let Some(captures) = regex.captures(&data) else {
-        return;
+        return Ok(());
     };
     let device_type_name = &captures["name"];
-    let device_index: usize = captures["index"].parse().unwrap();
+    let device_index: usize = captures["index"]
+        .parse()
+        .context("parsing index did not succed")?;
     let peripheral = &peripherals[device_index];
     match device_type_name {
         "smart trainer" => {
-            ble_device_handlers::smart_bike_trainer::handle_smart_trainer_peripheral(
-                stream, peripheral,
-            );
+            ble_device_handlers::smart_bike_trainer::run_smart_trainer_safe(stream, peripheral);
         }
         default => {
             panic!("device type not found! {:?}", default);
         }
     }
+
+    Ok(())
 }
