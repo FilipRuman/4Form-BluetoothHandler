@@ -2,7 +2,11 @@ mod ble_device_handlers;
 mod logs;
 mod tcp;
 mod tcp_parser;
+use ble_device_handlers::BleDevice;
+use btleplug::api::BDAddr;
+use btleplug::api::Peripheral;
 use spdlog::prelude::*;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use tcp::create_stream;
 use tcp::read_tcp_data;
@@ -18,35 +22,41 @@ async fn main() {
             panic!()
         }
     };
+
     let adapter = match ble_device_handlers::start_scan().await {
         Ok(o) => o,
         Err(e) => {
-            error!("scanning for peripherials did not succeed because:{e:?}");
+            error!("scanning for peripherals did not succeed because:{e:?}");
             panic!()
         }
     };
-
-    let mut old_peripherals_len = 0;
-    let mut old_peripherals_id = HashSet::new();
+    let mut old_peripherals_mac_address: HashSet<BDAddr> = HashSet::new();
+    let mut valid_peripherals: Vec<btleplug::platform::Peripheral> = Vec::new();
+    let mut devices: Vec<BleDevice> = Vec::new();
     loop {
         let peripherals = ble_device_handlers::get_found_peripherals(&adapter).await;
+        ble_device_handlers::handle_devices(&devices, &valid_peripherals, &mut stream).await;
 
         tcp_parser::send_peripherals(
             &mut stream,
-            &mut old_peripherals_len,
             &peripherals,
-            &mut old_peripherals_id,
+            &mut valid_peripherals,
+            &mut old_peripherals_mac_address,
         )
         .await;
-        old_peripherals_len = peripherals.len();
         let tcp_output = read_tcp_data(&mut stream);
 
-        match tcp_output {
-            Some(data) => {
-                // println!("tcp_output {:?} \n \n ", data);
-                tcp_parser::handle_data_input_from_tcp(data, &peripherals, &mut stream);
+        if let Some(raw_data) = tcp_output {
+            let splitted_data = raw_data.split('\n');
+
+            for data in splitted_data {
+                if let Some(device) =
+                    tcp_parser::handle_data_input_from_tcp(data, &valid_peripherals).await
+                {
+                    info!("new device was added: {:?}", devices);
+                    devices.push(device);
+                };
             }
-            None => {}
         }
     }
 }
