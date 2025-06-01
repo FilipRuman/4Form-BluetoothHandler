@@ -13,7 +13,7 @@ pub async fn create_stream() -> Result<TcpStream> {
     let listener = TcpListener::bind(TCP_ADDRESS)
         .await
         .context("create_stream: create listener")?;
-    let stream = listener.accept().await?; // has to be later changed
+    let stream = listener.accept().await?;
     Ok(stream.0)
 }
 pub fn read_tcp_data(stream: &mut TcpStream) -> Option<String> {
