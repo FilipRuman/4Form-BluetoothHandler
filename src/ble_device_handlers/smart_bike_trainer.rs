@@ -1,14 +1,12 @@
-use anyhow::Error;
 use btleplug::api::{Characteristic, Peripheral, WriteType, bleuuid::uuid_from_u16};
 use futures::StreamExt;
 use tokio::net::TcpStream;
 use uuid::Uuid;
 
 use crate::{ble_device_handlers::*, tcp_parser};
-use spdlog::prelude;
 
 pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16) {
-    // println!("data: {:?}", data);
+    println!("data: {:?}", data);
 
     let flags = u16::from_le_bytes([data[0], data[1]]);
     //     println!("Flags: {:016b}", flags);
@@ -23,14 +21,14 @@ pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16) {
 }
 const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
 const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
-async fn handle_smart_trainer_peripheral(
+pub async fn handle_smart_trainer_peripheral(
     stream: &mut TcpStream,
     peripheral: &btleplug::platform::Peripheral,
-) -> Result<()> {
-    info!("Connected smart trainer!");
+) {
+    println!("Connected smart trainer!");
 
-    let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, peripheral)?;
-    let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, peripheral)?;
+    let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral);
+    let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &peripheral);
 
     // default_log("Created characteristics", LogPriority::Stage);
 
@@ -38,39 +36,30 @@ async fn handle_smart_trainer_peripheral(
     peripheral
         .write(&control_char, &start_cmd, WriteType::WithResponse)
         .await
-        .context("starting training command:")?;
+        .unwrap();
 
-    peripheral
-        .subscribe(&data_char)
-        .await
-        .context("subscribing to trainer data notifications")?;
+    peripheral.subscribe(&data_char).await.unwrap();
+    println!("Subscribed to Indoor Bike Data notifications.");
 
     loop {
-        let mut notifications = peripheral.notifications().await?;
+        let mut notifications = peripheral.notifications().await.unwrap();
+
+        println!("Waiting for data...");
 
         while let Some(notification) = notifications.next().await {
             let output_data = parse_indoor_bike_data(&notification.value);
             let current_power = output_data.0;
             let cadence = output_data.1;
 
-            // println!(
-            //     "output_data: current_power: {} cadence: {}",
-            //     current_power, cadence
-            // );
+            println!(
+                "output_data: current_power: {} cadence: {}",
+                current_power, cadence
+            );
             tcp_parser::send_bike_trainer_data(stream, current_power, cadence).await;
 
-            // println!("Send all data over tcp!");
+            println!("Send all data over tcp!");
         }
     }
-}
-pub async fn run_smart_trainer_safe(
-    stream: &mut TcpStream,
-    peripheral: &btleplug::platform::Peripheral,
-) {
-    if let Err(error) = handle_smart_trainer_peripheral(stream, peripheral).await {
-        // maybe call the same function once again
-        error!("handler of smart trainer peripheral returned error: {error}");
-    };
 }
 async fn set_target_power(
     target_power: u16,
