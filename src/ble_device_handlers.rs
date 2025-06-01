@@ -63,13 +63,18 @@ pub async fn start_scan() -> Result<Adapter> {
     info!("started scanning");
     Ok(central)
 }
-pub async fn connect_to_peripheral(selected_peripheral: btleplug::platform::Peripheral) {
-    if selected_peripheral.connect().await.is_err() {
-        error!("connecting to device did not succed");
-    }
-    if selected_peripheral.discover_services().await.is_err() {
-        error!("discovering devices services did not suceed");
-    }
+pub async fn connect_to_peripheral(
+    selected_peripheral: btleplug::platform::Peripheral,
+) -> Result<()> {
+    selected_peripheral
+        .connect()
+        .await
+        .context("connecting to device did not succeed")?;
+    selected_peripheral
+        .discover_services()
+        .await
+        .context("discovering devices services did not succeed")?;
+    Ok(())
 }
 
 pub async fn get_found_peripherals(adapter: &Adapter) -> Vec<btleplug::platform::Peripheral> {
