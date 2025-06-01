@@ -88,5 +88,5 @@ pub fn get_characteristic_with_uuid(
         .find(
             |c| c.uuid == uuid, /* && c.properties == CharPropFlags::WRITE */
         )
-        .context("Control Point characteristic not found")
+        .ok_or(anyhow!(""))
 }
