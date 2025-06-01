@@ -16,7 +16,7 @@ pub enum BleDevice {
         control_char: Characteristic,
         data_char: Characteristic,
         // try changing that to value
-        peripheral_index: usize,
+        peripheral: btleplug::platform::Peripheral,
     },
 }
 
