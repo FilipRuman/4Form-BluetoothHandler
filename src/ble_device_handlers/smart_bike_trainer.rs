@@ -21,13 +21,29 @@ pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16) {
 
     (power, cadence)
 }
-async fn handle_smart_trainer_peripheral(
-    stream: &mut TcpStream,
 
 pub async fn handle_smart_trainer_peripheral(
+    control_char: &Characteristic,
+    data_char: &Characteristic,
     peripheral: &btleplug::platform::Peripheral,
+    stream: &mut TcpStream,
 ) -> Result<()> {
-    info!("Connected smart trainer!");
+    let mut notifications = peripheral.notifications().await?;
+    while let Some(notification) = notifications.next().await {
+        let output_data = parse_indoor_bike_data(&notification.value);
+        let current_power = output_data.0;
+        let cadence = output_data.1;
+
+        // println!(
+        //     "output_data: current_power: {} cadence: {}",
+        //     current_power, cadence
+        // );
+        tcp_parser::send_bike_trainer_data(stream, current_power, cadence).await;
+
+        // println!("Send all data over tcp!");
+    }
+    Ok(())
+}
 const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
 const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
 pub async fn get_smart_trainer_device(
@@ -60,34 +76,13 @@ pub async fn get_smart_trainer_device(
         .subscribe(&data_char)
         .await
         .context("subscribing to trainer data notifications")?;
-
-    loop {
-        let mut notifications = peripheral.notifications().await?;
-
-        while let Some(notification) = notifications.next().await {
-            let output_data = parse_indoor_bike_data(&notification.value);
-            let current_power = output_data.0;
-            let cadence = output_data.1;
-
-            // println!(
-            //     "output_data: current_power: {} cadence: {}",
-            //     current_power, cadence
-            // );
-            tcp_parser::send_bike_trainer_data(stream, current_power, cadence).await;
-
-            // println!("Send all data over tcp!");
-        }
-    }
+    Ok(BleDevice::SmartTrainer {
+        control_char,
+        data_char,
+        peripheral_index,
+    })
 }
-pub async fn run_smart_trainer_safe(
-    stream: &mut TcpStream,
-    peripheral: &btleplug::platform::Peripheral,
-) {
-    if let Err(error) = handle_smart_trainer_peripheral(stream, peripheral).await {
-        // maybe call the same function once again
-        error!("handler of smart trainer peripheral returned error: {error}");
-    };
-}
+
 async fn set_target_power(
     target_power: u16,
 
