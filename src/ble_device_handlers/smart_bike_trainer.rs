@@ -51,15 +51,9 @@ pub async fn get_smart_trainer_device(
     peripheral_index: usize,
 ) -> Result<BleDevice> {
     info!("Connected smart trainer! {peripheral:?}");
-    peripheral
-        .connect()
+    connect_to_peripheral(peripheral)
         .await
         .context("connecting to smart trainer")?;
-
-    peripheral
-        .discover_services()
-        .await
-        .context("discovering smart trainer's services")?;
 
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral)
         .context("Control Point characteristic not found")?;
