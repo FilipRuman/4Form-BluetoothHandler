@@ -83,31 +83,42 @@ pub async fn handle_data_input_from_tcp(
     }
 }
 
-fn handle_parsing_peripheral_connection(
-    data: String,
-    peripherals: &[btleplug::platform::Peripheral],
-    stream: &mut TcpStream,
-) -> Result<()> {
-    println!("handle_parsing_smart_trainer");
+async fn handle_parsing_peripheral_connection(
+    data: &str,
+    valid_peripherals: &[btleplug::platform::Peripheral],
+) -> Result<Option<BleDevice>> {
+    info!("handle parsing peripheral connection");
 
     // extracts name and index from data: i|Smart trainer|[3]
-    let regex = Regex::new(r"\|(?<name>.*)\|\[(?<index>.*)\]").unwrap();
-    let Some(captures) = regex.captures(&data) else {
-        return Ok(());
+    let regex = Regex::new(r"\|(?<name>.*)\|\[(?<index>.*)\]").context("compiling regex")?;
+
+    let Some(captures) = regex.captures(data) else {
+        return Err(anyhow!(""));
     };
+
     let device_type_name = &captures["name"];
     let device_index: usize = captures["index"]
         .parse()
-        .context("parsing index did not succed")?;
-    let peripheral = &peripherals[device_index];
+        .context("parsing index did not succeed")?;
+    let peripheral = &valid_peripherals[device_index];
+
     match device_type_name {
         "smart trainer" => {
-            ble_device_handlers::smart_bike_trainer::run_smart_trainer_safe(stream, peripheral);
-        }
-        default => {
-            panic!("device type not found! {:?}", default);
-        }
-    }
+            info!("the peripheral type is smart trainer!");
 
-    Ok(())
+            match ble_device_handlers::smart_bike_trainer::get_smart_trainer_device(
+                peripheral.to_owned(),
+                device_index,
+            )
+            .await
+            {
+                Ok(val) => Ok(Some(val)),
+                Err(error) => {
+                    error!("getting smart trainer device returned error: {error}");
+                    Ok(None)
+                }
+            }
+        }
+        default => Err(anyhow!("device name was not recognized: {default}")),
+    }
 }
