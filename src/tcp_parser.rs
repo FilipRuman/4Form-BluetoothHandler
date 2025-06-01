@@ -1,8 +1,14 @@
-use std::{collections::HashSet, default, error, thread::sleep, time::Duration};
+use std::{collections::HashSet, default, io::Error, thread::sleep, time::Duration};
 
-use crate::{ble_device_handlers, tcp};
-use anyhow::{Context, Error, Result};
-use btleplug::{api::Peripheral, platform::PeripheralId};
+use crate::{
+    ble_device_handlers::{self, BleDevice},
+    tcp,
+};
+use anyhow::{Context, Result, anyhow};
+use btleplug::{
+    api::{BDAddr, Peripheral},
+    platform::PeripheralId,
+};
 use regex::{self, Regex};
 use spdlog::prelude::*;
 use tokio::net::TcpStream;
