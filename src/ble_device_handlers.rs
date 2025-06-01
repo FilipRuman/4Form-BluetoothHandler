@@ -52,7 +52,7 @@ pub async fn handle_devices(
 pub async fn start_scan() -> Result<Adapter> {
     let manager = btleplug::platform::Manager::new().await?;
     // get the first bluetooth adapter
-    let adapters = manager.adapters().await.context("geting adapters")?;
+    let adapters = manager.adapters().await.context("getting adapters")?;
     let central = adapters.into_iter().next().unwrap();
 
     central
