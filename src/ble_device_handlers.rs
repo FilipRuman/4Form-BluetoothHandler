@@ -30,15 +30,10 @@ pub async fn handle_devices(
             BleDevice::SmartTrainer {
                 control_char,
                 data_char,
-                peripheral_index,
+                peripheral,
             } => {
-                match handle_smart_trainer_peripheral(
-                    control_char,
-                    data_char,
-                    &valid_peripherals[peripheral_index.to_owned()],
-                    stream,
-                )
-                .await
+                match handle_smart_trainer_peripheral(control_char, data_char, peripheral, stream)
+                    .await
                 {
                     Ok(_) => {}
                     Err(error) => {
