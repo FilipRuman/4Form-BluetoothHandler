@@ -64,7 +64,7 @@ pub async fn start_scan() -> Result<Adapter> {
     Ok(central)
 }
 pub async fn connect_to_peripheral(
-    selected_peripheral: btleplug::platform::Peripheral,
+    selected_peripheral: &btleplug::platform::Peripheral,
 ) -> Result<()> {
     selected_peripheral
         .connect()

@@ -51,7 +51,7 @@ pub async fn get_smart_trainer_device(
     peripheral_index: usize,
 ) -> Result<BleDevice> {
     info!("Connected smart trainer! {peripheral:?}");
-    connect_to_peripheral(peripheral)
+    connect_to_peripheral(&peripheral)
         .await
         .context("connecting to smart trainer")?;
 
