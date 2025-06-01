@@ -4,11 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.98"
 btleplug = "0.11.8"
+chrono = "0.4.41"
+colored = "3.0.0"
 futures = "0.3.31"
-spdlog-rs = {version ="0.4",features=["multi-thread"]}
 regex = "1.11.1"
-thiserror = "2.0.12"
 tokio = { version = "1.45.0", features = ["full"] }
 uuid = "1.16.0"
