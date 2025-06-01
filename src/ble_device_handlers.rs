@@ -1,13 +1,14 @@
 pub(crate) mod smart_bike_trainer;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use btleplug::{
     api::{Central, Characteristic, Manager, Peripheral, ScanFilter},
     platform::Adapter,
 };
+use smart_bike_trainer::handle_smart_trainer_peripheral;
 use spdlog::prelude::*;
-use tokio::time;
+use tokio::{net::TcpStream, time};
 use uuid::Uuid;
 #[derive(Debug)]
 pub enum BleDevice {
@@ -19,6 +20,35 @@ pub enum BleDevice {
     },
 }
 
+pub async fn handle_devices(
+    devices: &Vec<BleDevice>,
+    valid_peripherals: &[btleplug::platform::Peripheral],
+    stream: &mut TcpStream,
+) {
+    for device in devices {
+        match device {
+            BleDevice::SmartTrainer {
+                control_char,
+                data_char,
+                peripheral_index,
+            } => {
+                match handle_smart_trainer_peripheral(
+                    control_char,
+                    data_char,
+                    &valid_peripherals[peripheral_index.to_owned()],
+                    stream,
+                )
+                .await
+                {
+                    Ok(_) => {}
+                    Err(error) => {
+                        error!("handler of smart trainer peripheral returned error: {error}");
+                    }
+                };
+            }
+        }
+    }
+}
 pub async fn start_scan() -> Result<Adapter> {
     let manager = btleplug::platform::Manager::new().await?;
     // get the first bluetooth adapter
