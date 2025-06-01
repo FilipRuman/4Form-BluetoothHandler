@@ -9,6 +9,15 @@ use btleplug::{
 use spdlog::prelude::*;
 use tokio::time;
 use uuid::Uuid;
+#[derive(Debug)]
+pub enum BleDevice {
+    SmartTrainer {
+        control_char: Characteristic,
+        data_char: Characteristic,
+        // try changing that to value
+        peripheral_index: usize,
+    },
+}
 
 pub async fn start_scan() -> Result<Adapter> {
     let manager = btleplug::platform::Manager::new().await?;
