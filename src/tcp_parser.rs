@@ -13,15 +13,19 @@ pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence:
 }
 pub async fn send_peripherals(
     stream: &mut TcpStream,
-    old_peripherals_len: &mut usize,
     peripherals: &[btleplug::platform::Peripheral],
-    old_peripherals_ids: &mut HashSet<PeripheralId>,
+    valid_peripherals: &mut Vec<btleplug::platform::Peripheral>,
+    old_peripherals_adresses: &mut HashSet<BDAddr>,
 ) {
-    for i in old_peripherals_len.to_owned()..peripherals.len() {
-        let peripheral = &peripherals[i];
-        if !old_peripherals_ids.insert(peripheral.id()) {
+    for peripheral in peripherals {
+        if !old_peripherals_adresses.insert(peripheral.address()) {
             continue;
         }
+        // this index will be used to get that specific peripheral by tcp, from c# side, when eg.
+        // connecting to it
+        let peripheral_index = valid_peripherals.len();
+
+        valid_peripherals.push(peripherals[peripheral_index].to_owned());
         let properties = match peripheral.properties().await {
             Ok(o) => o.unwrap(),
             Err(e) => {
@@ -38,7 +42,7 @@ pub async fn send_peripherals(
             None => "unknown".to_string(),
         };
 
-        tcp::send_tcp_data(stream, format!("i[{}]|{}|", name, i)).await;
+        tcp::send_tcp_data(stream, format!("i[{}]|{}|", name, peripheral_index)).await;
         // have to wait some time when sending multiple packages so they don't stack up to one on
         // the c# side
         sleep(Duration::from_millis(5));
