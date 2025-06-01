@@ -21,18 +21,34 @@ pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16) {
 
     (power, cadence)
 }
-const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
-const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
 async fn handle_smart_trainer_peripheral(
     stream: &mut TcpStream,
+
+pub async fn handle_smart_trainer_peripheral(
     peripheral: &btleplug::platform::Peripheral,
 ) -> Result<()> {
     info!("Connected smart trainer!");
+const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
+const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
+pub async fn get_smart_trainer_device(
+    peripheral: btleplug::platform::Peripheral,
+    peripheral_index: usize,
+) -> Result<BleDevice> {
+    info!("Connected smart trainer! {peripheral:?}");
+    peripheral
+        .connect()
+        .await
+        .context("connecting to smart trainer")?;
 
-    let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, peripheral)?;
-    let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, peripheral)?;
+    peripheral
+        .discover_services()
+        .await
+        .context("discovering smart trainer's services")?;
 
-    // default_log("Created characteristics", LogPriority::Stage);
+    let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral)
+        .context("Control Point characteristic not found")?;
+    let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &peripheral)
+        .context("Data read characteristic not found")?;
 
     let start_cmd = vec![0x07]; // 0x07 = Start or Resume Training
     peripheral
