@@ -1,3 +1,5 @@
+pub mod tcp_parser;
+
 use std::error::Error;
 
 use anyhow::Context;

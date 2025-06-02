@@ -1,7 +1,6 @@
 mod ble_device_handlers;
 mod logs;
 mod tcp;
-mod tcp_parser;
 use ble_device_handlers::BleDevice;
 use btleplug::api::BDAddr;
 use btleplug::api::Peripheral;
