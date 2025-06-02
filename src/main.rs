@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use tcp::create_stream;
 use tcp::read_tcp_data;
+use tcp::tcp_parser;
 #[tokio::main]
 async fn main() {
     logs::setup_logger();
