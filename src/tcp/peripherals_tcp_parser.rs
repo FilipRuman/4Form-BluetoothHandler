@@ -1,9 +1,8 @@
-use std::{collections::HashSet, default, io::Error, thread::sleep, time::Duration};
+use crate::ble_device_handlers;
+use crate::ble_device_handlers::smart_bike_trainer;
 
-use crate::{
-    ble_device_handlers::{self, BleDevice},
-    tcp, tcp_parser,
-};
+use crate::tcp::device_tcp_parser;
+use crate::{ble_device_handlers::BleDevice, tcp, tcp_parser};
 use anyhow::{Context, Result, anyhow};
 use btleplug::{
     api::{BDAddr, Peripheral},
@@ -11,20 +10,9 @@ use btleplug::{
 };
 use regex::{self, Regex};
 use spdlog::prelude::*;
-use tokio::net::TcpStream;
+use std::{collections::HashSet, time::Duration};
+use tokio::{net::TcpStream, time::sleep};
 
-const SMART_TRAINER_DEVICE_TYPE: &str = "smart trainer";
-pub async fn send_device_connection_information(
-    stream: &mut TcpStream,
-    index: usize,
-    device_type_name: &str,
-) {
-    tcp::send_tcp_data(stream, format!("o|{}|[{}]", device_type_name, index)).await;
-}
-pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
-    tcp::send_tcp_data(stream, format!("p{}", power)).await;
-    tcp::send_tcp_data(stream, format!("c{}", cadence)).await;
-}
 pub async fn send_peripherals(
     stream: &mut TcpStream,
     peripherals: &[btleplug::platform::Peripheral],
@@ -68,37 +56,8 @@ pub async fn send_peripherals(
     }
 }
 
-pub async fn handle_data_input_from_tcp(
-    data: &str,
-    valid_peripherals: &[btleplug::platform::Peripheral],
-    stream: &mut TcpStream,
-) -> Option<BleDevice> {
-    if data.is_empty() || data.starts_with('\0') {
-        return None;
-    }
-
-    let mut chars = data.chars();
-
-    info!("parsing data from tcp: {}", data);
-
-    // this would only fail if len == 0 but it is checked
-
-    match chars.next().unwrap() {
-        'i' => match handle_parsing_peripheral_connection(data, valid_peripherals, stream).await {
-            Ok(option_value) => option_value,
-            Err(error) => {
-                error!("handling parsing peripheral: {error}");
-                None
-            }
-        },
-        _ => {
-            warn!("tcp input type not found");
-            None
-        }
-    }
-}
-
-async fn handle_parsing_peripheral_connection(
+const SMART_TRAINER_DEVICE_TYPE: &str = "smart trainer";
+pub(super) async fn handle_parsing_peripheral_connection(
     data: &str,
     valid_peripherals: &[btleplug::platform::Peripheral],
     stream: &mut TcpStream,
@@ -144,6 +103,7 @@ async fn handle_parsing_peripheral_connection(
     }
     // only if connection to device succeed
     info!("Successfully connected to device! sending connection information thru tcp");
-    tcp_parser::send_device_connection_information(stream, device_index, device_type_name).await;
+    device_tcp_parser::send_device_connection_information(stream, device_index, device_type_name)
+        .await;
     Ok(Some(device))
 }
