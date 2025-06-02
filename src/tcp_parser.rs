@@ -118,6 +118,7 @@ async fn handle_parsing_peripheral_connection(
         .context("parsing index did not succeed")?;
     let peripheral = &valid_peripherals[device_index];
     let device: BleDevice;
+
     match device_type_name {
         SMART_TRAINER_DEVICE_TYPE => {
             info!("the peripheral type is smart trainer!");
@@ -142,6 +143,7 @@ async fn handle_parsing_peripheral_connection(
         }
     }
     // only if connection to device succeed
+    info!("Successfully connected to device! sending connection information thru tcp");
     tcp_parser::send_device_connection_information(stream, device_index, device_type_name).await;
     Ok(Some(device))
 }
