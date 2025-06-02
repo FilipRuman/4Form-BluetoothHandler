@@ -1,6 +1,3 @@
-pub mod peripherals_tcp_parser;
-pub mod tcp_parser;
-
 use std::error::Error;
 
 use anyhow::Context;
@@ -19,7 +16,7 @@ pub async fn create_stream() -> Result<TcpStream> {
     let stream = listener.accept().await?;
     Ok(stream.0)
 }
-pub(super) fn read_tcp_data(stream: &mut TcpStream) -> Option<String> {
+pub fn read_tcp_data(stream: &mut TcpStream) -> Option<String> {
     let mut output = vec![0; 1024];
 
     match stream.try_read(&mut output) {
@@ -27,7 +24,7 @@ pub(super) fn read_tcp_data(stream: &mut TcpStream) -> Option<String> {
         Err(_) => None,
     }
 }
-pub(super) async fn send_tcp_data(stream: &mut TcpStream, mut data: String) {
+pub async fn send_tcp_data(stream: &mut TcpStream, mut data: String) {
     data += "\n";
     match stream.write_all(data.as_bytes()).await {
         Ok(out) => out,
