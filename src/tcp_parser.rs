@@ -39,7 +39,7 @@ pub async fn send_peripherals(
         // connecting to it
         let peripheral_index = valid_peripherals.len();
 
-        valid_peripherals.push(peripherals[peripheral_index].to_owned());
+        valid_peripherals.push(peripheral.to_owned());
         let properties = match peripheral.properties().await {
             Ok(o) => o.unwrap(),
             Err(e) => {
