@@ -13,6 +13,23 @@ use regex::{self, Regex};
 use spdlog::prelude::*;
 use tokio::net::TcpStream;
 
+const SMART_TRAINER_DEVICE_TYPE: &str = "smart trainer";
+pub async fn send_device_connection_information(stream: &mut TcpStream, device: &BleDevice) {
+    let index;
+    let device_type;
+    match device {
+        BleDevice::SmartTrainer {
+            control_char: _,
+            data_char: _,
+            index: _index,
+            peripheral: _,
+        } => {
+            index = _index;
+            device_type = SMART_TRAINER_DEVICE_TYPE;
+        }
+    }
+    tcp::send_tcp_data(stream, format!("o |{}| [{}]", index, device_type));
+}
 pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
     tcp::send_tcp_data(stream, format!("p{}", power)).await;
     tcp::send_tcp_data(stream, format!("c{}", cadence)).await;
@@ -109,7 +126,7 @@ async fn handle_parsing_peripheral_connection(
     let peripheral = &valid_peripherals[device_index];
 
     match device_type_name {
-        "smart trainer" => {
+        SMART_TRAINER_DEVICE_TYPE => {
             info!("the peripheral type is smart trainer!");
 
             match ble_device_handlers::smart_bike_trainer::get_smart_trainer_device(
