@@ -38,7 +38,7 @@ async fn main() {
 
         ble_device_handlers::handle_devices(&devices, &valid_peripherals, &mut stream).await;
 
-        tcp_parser::send_peripherals(
+        tcp::peripherals_tcp_parser::send_peripherals(
             &mut stream,
             &peripherals,
             &mut valid_peripherals,
