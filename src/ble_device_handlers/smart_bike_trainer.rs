@@ -50,10 +50,11 @@ pub async fn get_smart_trainer_device(
     peripheral: btleplug::platform::Peripheral,
     peripheral_index: usize,
 ) -> Result<BleDevice> {
-    info!("Connected smart trainer! {peripheral:?}");
     connect_to_peripheral(&peripheral)
         .await
         .context("connecting to smart trainer")?;
+
+    info!("Connected smart trainer! {peripheral:?}");
 
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral)
         .context("Control Point characteristic not found")?;

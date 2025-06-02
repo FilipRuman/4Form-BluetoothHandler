@@ -4,14 +4,34 @@ use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
 
-use btleplug::api::{BDAddr, Peripheral};
-use regex::Regex;
+use crate::{
+    ble_device_handlers::{self, BleDevice},
+    tcp, tcp_parser,
+};
+use anyhow::{Context, Result, anyhow};
+use btleplug::{
+    api::{BDAddr, Peripheral},
+    platform::PeripheralId,
+};
+use regex::{self, Regex};
 use spdlog::prelude::*;
 use std::{collections::HashSet, time::Duration};
 use tokio::{net::TcpStream, time::sleep};
 
 use crate::{ble_device_handlers::BleDevice, tcp};
 
+const SMART_TRAINER_DEVICE_TYPE: &str = "smart trainer";
+pub async fn send_device_connection_information(
+    stream: &mut TcpStream,
+    index: usize,
+    device_type_name: &str,
+) {
+    tcp::send_tcp_data(stream, format!("o|{}|[{}]", device_type_name, index)).await;
+}
+pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
+    tcp::send_tcp_data(stream, format!("p{}", power)).await;
+    tcp::send_tcp_data(stream, format!("c{}", cadence)).await;
+}
 pub async fn send_peripherals(
     stream: &mut TcpStream,
     peripherals: &[btleplug::platform::Peripheral],
@@ -26,7 +46,7 @@ pub async fn send_peripherals(
         // connecting to it
         let peripheral_index = valid_peripherals.len();
 
-        valid_peripherals.push(peripherals[peripheral_index].to_owned());
+        valid_peripherals.push(peripheral.to_owned());
         let properties = match peripheral.properties().await {
             Ok(o) => o.unwrap(),
             Err(e) => {
@@ -43,7 +63,7 @@ pub async fn send_peripherals(
             None => "unknown".to_string(),
         };
 
-        tcp::send_tcp_data(stream, format!("i[{}]|{}|", name, peripheral_index)).await;
+        tcp::send_tcp_data(stream, format!("i|{}|[{}]", name, peripheral_index)).await;
         // have to wait some time when sending multiple packages so they don't stack up to one on
         // the c# side
         sleep(Duration::from_millis(5));
@@ -58,6 +78,7 @@ pub async fn send_peripherals(
 pub(super) async fn handle_parsing_peripheral_connection(
     data: &str,
     valid_peripherals: &[btleplug::platform::Peripheral],
+    stream: &mut TcpStream,
 ) -> Result<Option<BleDevice>> {
     info!("handle parsing peripheral connection");
 
@@ -73,9 +94,10 @@ pub(super) async fn handle_parsing_peripheral_connection(
         .parse()
         .context("parsing index did not succeed")?;
     let peripheral = &valid_peripherals[device_index];
+    let device: BleDevice;
 
     match device_type_name {
-        "smart trainer" => {
+        SMART_TRAINER_DEVICE_TYPE => {
             info!("the peripheral type is smart trainer!");
 
             match ble_device_handlers::smart_bike_trainer::get_smart_trainer_device(
@@ -84,13 +106,21 @@ pub(super) async fn handle_parsing_peripheral_connection(
             )
             .await
             {
-                Ok(val) => Ok(Some(val)),
+                Ok(val) => {
+                    device = val;
+                }
                 Err(error) => {
                     error!("getting smart trainer device returned error: {error}");
-                    Ok(None)
+                    return Ok(None);
                 }
             }
         }
-        default => Err(anyhow!("device name was not recognized: {default}")),
+        default => {
+            return Err(anyhow!("device name was not recognized: {default}"));
+        }
     }
+    // only if connection to device succeed
+    info!("Successfully connected to device! sending connection information thru tcp");
+    tcp_parser::send_device_connection_information(stream, device_index, device_type_name).await;
+    Ok(Some(device))
 }
