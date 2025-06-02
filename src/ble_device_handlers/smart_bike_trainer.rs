@@ -73,7 +73,7 @@ pub async fn get_smart_trainer_device(
     Ok(BleDevice::SmartTrainer {
         control_char,
         data_char,
-        peripheral_index,
+        peripheral,
     })
 }
 

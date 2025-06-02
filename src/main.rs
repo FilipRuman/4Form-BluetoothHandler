@@ -1,7 +1,6 @@
 mod ble_device_handlers;
 mod logs;
 mod tcp;
-mod tcp_parser;
 use ble_device_handlers::BleDevice;
 use btleplug::api::BDAddr;
 use btleplug::api::Peripheral;
@@ -10,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use tcp::create_stream;
 use tcp::read_tcp_data;
+use tcp::tcp_parser;
 #[tokio::main]
 async fn main() {
     logs::setup_logger();
@@ -35,9 +35,10 @@ async fn main() {
     let mut devices: Vec<BleDevice> = Vec::new();
     loop {
         let peripherals = ble_device_handlers::get_found_peripherals(&adapter).await;
+
         ble_device_handlers::handle_devices(&devices, &valid_peripherals, &mut stream).await;
 
-        tcp_parser::send_peripherals(
+        tcp::peripherals_tcp_parser::send_peripherals(
             &mut stream,
             &peripherals,
             &mut valid_peripherals,

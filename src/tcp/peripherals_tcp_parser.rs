@@ -1,22 +1,17 @@
-use std::{collections::HashSet, default, io::Error, thread::sleep, time::Duration};
+use crate::ble_device_handlers;
+use crate::ble_device_handlers::smart_bike_trainer;
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::anyhow;
 
-use crate::{
-    ble_device_handlers::{self, BleDevice},
-    tcp,
-};
-use anyhow::{Context, Result, anyhow};
-use btleplug::{
-    api::{BDAddr, Peripheral},
-    platform::PeripheralId,
-};
-use regex::{self, Regex};
+use btleplug::api::{BDAddr, Peripheral};
+use regex::Regex;
 use spdlog::prelude::*;
-use tokio::net::TcpStream;
+use std::{collections::HashSet, time::Duration};
+use tokio::{net::TcpStream, time::sleep};
 
-pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
-    tcp::send_tcp_data(stream, format!("p{}", power)).await;
-    tcp::send_tcp_data(stream, format!("c{}", cadence)).await;
-}
+use crate::{ble_device_handlers::BleDevice, tcp};
+
 pub async fn send_peripherals(
     stream: &mut TcpStream,
     peripherals: &[btleplug::platform::Peripheral],
@@ -60,36 +55,7 @@ pub async fn send_peripherals(
     }
 }
 
-pub async fn handle_data_input_from_tcp(
-    data: &str,
-    valid_peripherals: &[btleplug::platform::Peripheral],
-) -> Option<BleDevice> {
-    if data.is_empty() || data.starts_with('\0') {
-        return None;
-    }
-
-    let mut chars = data.chars();
-
-    info!("parsing data from tcp: {}", data);
-
-    // this would only fail if len == 0 but it is checked
-
-    match chars.next().unwrap() {
-        'i' => match handle_parsing_peripheral_connection(data, valid_peripherals).await {
-            Ok(option_value) => option_value,
-            Err(error) => {
-                error!("handling parsing peripheral: {error}");
-                None
-            }
-        },
-        _ => {
-            warn!("tcp input type not found");
-            None
-        }
-    }
-}
-
-async fn handle_parsing_peripheral_connection(
+pub(super) async fn handle_parsing_peripheral_connection(
     data: &str,
     valid_peripherals: &[btleplug::platform::Peripheral],
 ) -> Result<Option<BleDevice>> {
