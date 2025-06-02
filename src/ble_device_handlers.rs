@@ -16,7 +16,7 @@ pub enum BleDevice {
         control_char: Characteristic,
         data_char: Characteristic,
         // try changing that to value
-        peripheral: btleplug::platform::Peripheral,
+        peripheral_index: usize,
     },
 }
 
@@ -30,10 +30,15 @@ pub async fn handle_devices(
             BleDevice::SmartTrainer {
                 control_char,
                 data_char,
-                peripheral,
+                peripheral_index,
             } => {
-                match handle_smart_trainer_peripheral(control_char, data_char, peripheral, stream)
-                    .await
+                match handle_smart_trainer_peripheral(
+                    control_char,
+                    data_char,
+                    &valid_peripherals[peripheral_index.to_owned()],
+                    stream,
+                )
+                .await
                 {
                     Ok(_) => {}
                     Err(error) => {
