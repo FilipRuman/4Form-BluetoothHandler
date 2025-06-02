@@ -17,13 +17,9 @@ const SMART_TRAINER_DEVICE_TYPE: &str = "smart trainer";
 pub async fn send_device_connection_information(
     stream: &mut TcpStream,
     index: usize,
-    send_device_connection_information: &str,
+    device_type_name: &str,
 ) {
-    tcp::send_tcp_data(
-        stream,
-        format!("o |{}| [{}]", index, send_device_connection_information),
-    )
-    .await;
+    tcp::send_tcp_data(stream, format!("o|{}|[{}]", device_type_name, index)).await;
 }
 pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
     tcp::send_tcp_data(stream, format!("p{}", power)).await;
@@ -60,7 +56,7 @@ pub async fn send_peripherals(
             None => "unknown".to_string(),
         };
 
-        tcp::send_tcp_data(stream, format!("i[{}]|{}|", name, peripheral_index)).await;
+        tcp::send_tcp_data(stream, format!("i|{}|[{}]", name, peripheral_index)).await;
         // have to wait some time when sending multiple packages so they don't stack up to one on
         // the c# side
         sleep(Duration::from_millis(5));
