@@ -21,6 +21,8 @@ pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence:
 pub async fn handle_data_input_from_tcp(
     data: &str,
     valid_peripherals: &[btleplug::platform::Peripheral],
+
+    stream: &mut TcpStream,
 ) -> Option<BleDevice> {
     if data.is_empty() || data.starts_with('\0') {
         return None;
@@ -36,6 +38,7 @@ pub async fn handle_data_input_from_tcp(
         'i' => match peripherals_tcp_parser::handle_parsing_peripheral_connection(
             data,
             valid_peripherals,
+            stream,
         )
         .await
         {

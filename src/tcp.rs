@@ -1,3 +1,4 @@
+pub mod device_tcp_parser;
 pub mod peripherals_tcp_parser;
 pub mod tcp_parser;
 
