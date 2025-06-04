@@ -45,9 +45,6 @@ pub async fn send_peripherals(
         };
 
         tcp::send_tcp_data(stream, format!("i|{}|[{}]", name, peripheral_index)).await;
-        // have to wait some time when sending multiple packages so they don't stack up to one on
-        // the c# side
-        sleep(Duration::from_millis(5));
         println!(
             "send_peripherals: peripheral id:{} {:?}",
             peripheral.id(),
