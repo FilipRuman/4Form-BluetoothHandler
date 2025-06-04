@@ -7,19 +7,20 @@ use uuid::Uuid;
 use crate::{ble_device_handlers::*, tcp_parser};
 use spdlog::prelude;
 
-pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16) {
+pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16, u16) {
     // println!("data: {:?}", data);
 
     let flags = u16::from_le_bytes([data[0], data[1]]);
     //     println!("Flags: {:016b}", flags);
 
-    // cadence -> obviously not right has to be something like flywheal rotation speed / resistance
-    let cadence = u16::from_le_bytes([data[2], data[3]]);
+    // Seems right but not accurate to ftms spec  XD
+    let wheel_rotation = u16::from_le_bytes([data[2], data[3]]);
+    //
+    let cadence = u16::from_le_bytes([data[4], data[5]]);
 
-    // Power -> Seems right but not accurate to ftms spec  XD
     let power = u16::from_le_bytes([data[6], data[7]]);
 
-    (power, cadence)
+    (power, cadence, wheel_rotation)
 }
 
 pub async fn handle_smart_trainer_peripheral(
@@ -33,12 +34,13 @@ pub async fn handle_smart_trainer_peripheral(
         let output_data = parse_indoor_bike_data(&notification.value);
         let current_power = output_data.0;
         let cadence = output_data.1;
+        let wheel_rotation = output_data.2;
 
         // println!(
         //     "output_data: current_power: {} cadence: {}",
         //     current_power, cadence
         // );
-        tcp_parser::send_bike_trainer_data(stream, current_power, cadence).await;
+        tcp_parser::send_bike_trainer_data(stream, current_power, cadence, wheel_rotation).await;
 
         // println!("Send all data over tcp!");
     }
