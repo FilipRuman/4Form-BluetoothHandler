@@ -13,9 +13,20 @@ use regex::{self, Regex};
 use spdlog::prelude::*;
 use tokio::net::TcpStream;
 
-pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
-    tcp::send_tcp_data(stream, format!("p{}", power)).await;
-    tcp::send_tcp_data(stream, format!("c{}", cadence)).await;
+pub async fn send_bike_trainer_data(
+    stream: &mut TcpStream,
+    power: u16,
+    cadence: u16,
+    wheel_rotation: u16,
+) {
+    tcp::send_tcp_data(
+        stream,
+        format!(
+            "t power:{};cadence:{};rotation:{};",
+            power, cadence, wheel_rotation
+        ),
+    )
+    .await;
 }
 
 pub async fn handle_data_input_from_tcp(
