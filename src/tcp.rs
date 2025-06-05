@@ -6,6 +6,7 @@ use std::error::Error;
 
 use anyhow::Context;
 use anyhow::Result;
+use futures::future::err;
 use spdlog::prelude::*;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
@@ -17,6 +18,7 @@ pub async fn create_stream() -> Result<TcpStream> {
     let listener = TcpListener::bind(TCP_ADDRESS)
         .await
         .context("create_stream: create listener")?;
+
     let stream = listener.accept().await?;
     Ok(stream.0)
 }
@@ -30,10 +32,12 @@ pub(super) fn read_tcp_data(stream: &mut TcpStream) -> Option<String> {
 }
 pub(super) async fn send_tcp_data(stream: &mut TcpStream, mut data: String) {
     data += "\n";
+
     match stream.write_all(data.as_bytes()).await {
         Ok(out) => out,
         Err(err) => {
-            warn!("send_tcp_data did not succeed because:{err:?}")
+            error!("send_tcp_data did not succeed because:{err:?}");
+            panic!()
         }
     };
 }
