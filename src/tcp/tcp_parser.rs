@@ -1,15 +1,8 @@
-use std::{collections::HashSet, default, io::Error, thread::sleep, time::Duration};
-
 use crate::{
-    ble_device_handlers::{self, BleDevice},
+    ble_device_handlers::BleDevice,
     tcp::{self, peripherals_tcp_parser},
 };
-use anyhow::{Context, Result, anyhow};
-use btleplug::{
-    api::{BDAddr, Peripheral},
-    platform::PeripheralId,
-};
-use regex::{self, Regex};
+
 use spdlog::prelude::*;
 use tokio::net::TcpStream;
 

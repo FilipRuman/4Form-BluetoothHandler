@@ -1,17 +1,13 @@
 use crate::ble_device_handlers;
-use crate::ble_device_handlers::smart_bike_trainer;
 
 use crate::tcp::device_tcp_parser;
-use crate::{ble_device_handlers::BleDevice, tcp, tcp_parser};
+use crate::{ble_device_handlers::BleDevice, tcp};
 use anyhow::{Context, Result, anyhow};
-use btleplug::{
-    api::{BDAddr, Peripheral},
-    platform::PeripheralId,
-};
+use btleplug::api::{BDAddr, Peripheral};
 use regex::{self, Regex};
 use spdlog::prelude::*;
-use std::{collections::HashSet, time::Duration};
-use tokio::{net::TcpStream, time::sleep};
+use std::collections::HashSet;
+use tokio::net::TcpStream;
 
 pub async fn send_peripherals(
     stream: &mut TcpStream,

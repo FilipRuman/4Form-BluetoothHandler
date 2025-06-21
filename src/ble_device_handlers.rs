@@ -74,7 +74,7 @@ pub async fn connect_to_peripheral(
 
 pub async fn get_found_peripherals(adapter: &Adapter) -> Vec<btleplug::platform::Peripheral> {
     // wait a bit to scan
-    time::sleep(Duration::from_secs(1)).await;
+    time::sleep(Duration::from_millis(500)).await;
     adapter.peripherals().await.unwrap()
 }
 
@@ -86,7 +86,7 @@ pub fn get_characteristic_with_uuid(
         .characteristics()
         .into_iter()
         .find(
-            |c| c.uuid == uuid, /* && c.properties == CharPropFlags::WRITE */
+            |c| c.uuid == uuid
         )
         .ok_or(anyhow!(""))
 }
