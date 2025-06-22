@@ -12,3 +12,4 @@ regex = "1.11.1"
 thiserror = "2.0.12"
 tokio = { version = "1.45.0", features = ["full"] }
 uuid = "1.16.0"
+libdbus-sys = {version = "0.2.5", features = ["vendored"]}
