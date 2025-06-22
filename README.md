@@ -1,6 +1,7 @@
 # [4Form](https://github.com/FilipRuman/4Form)
 
-![image](https://github.com/user-attachments/assets/a0888d64-47ef-4447-9bdd-6bb7074e6a7a)
+![image](https://github.com/user-attachments/assets/7023b4cb-bdf2-4c37-aade-f4a617f856f8)
+
 
  bluetooth LE Handler
 it's responsible for interacting with devices thru Bluetooth low energy with btleplug. sends data and collects inputs thru TCP.
