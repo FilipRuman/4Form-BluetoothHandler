@@ -81,6 +81,8 @@ pub(super) async fn handle_parsing_peripheral_connection(
             )
             .await
             {
+        "hr tracker" => {
+            match ble_device_handlers::hr_tracker::get_device(peripheral.to_owned()).await {
                 Ok(val) => {
                     device = val;
                 }

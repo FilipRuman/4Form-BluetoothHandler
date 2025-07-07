@@ -1,3 +1,4 @@
+pub(crate) mod hr_tracker;
 pub(crate) mod smart_bike_trainer;
 use std::time::Duration;
 
@@ -12,6 +13,12 @@ use tokio::{net::TcpStream, time};
 use uuid::Uuid;
 #[derive(Debug)]
 pub enum BleDevice {
+    HRTracker {
+        hr_char: Characteristic,
+        // try changing that to value
+        peripheral: btleplug::platform::Peripheral,
+    },
+
     SmartTrainer {
         control_char: Characteristic,
         data_char: Characteristic,
@@ -41,6 +48,18 @@ pub async fn handle_devices(
                     }
                 };
             }
+
+            BleDevice::HRTracker {
+                hr_char: _,
+                peripheral,
+            } => {
+                match hr_tracker::handle_peripheral(peripheral, stream).await {
+                    Ok(_) => {}
+                    Err(error) => {
+                        error!("handler of smart watch peripheral returned error: {error}");
+                    }
+                };
+            }
         }
     }
 }
@@ -58,7 +77,7 @@ pub async fn start_scan() -> Result<Adapter> {
     info!("started scanning");
     Ok(central)
 }
-pub async fn connect_to_peripheral(
+pub(super) async fn connect_to_peripheral(
     selected_peripheral: &btleplug::platform::Peripheral,
 ) -> Result<()> {
     selected_peripheral
@@ -85,8 +104,6 @@ pub fn get_characteristic_with_uuid(
     peripheral
         .characteristics()
         .into_iter()
-        .find(
-            |c| c.uuid == uuid
-        )
+        .find(|c| c.uuid == uuid)
         .ok_or(anyhow!(""))
 }
