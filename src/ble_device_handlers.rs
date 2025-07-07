@@ -7,7 +7,7 @@ use btleplug::{
     api::{Central, Characteristic, Manager, Peripheral, ScanFilter},
     platform::Adapter,
 };
-use smart_bike_trainer::handle_smart_trainer_peripheral;
+use smart_bike_trainer::handle_peripheral;
 use spdlog::prelude::*;
 use tokio::{net::TcpStream, time};
 use uuid::Uuid;
@@ -36,11 +36,10 @@ pub async fn handle_devices(
         match device {
             BleDevice::SmartTrainer {
                 control_char,
-                data_char,
+                data_char: _,
                 peripheral,
             } => {
-                match handle_smart_trainer_peripheral(control_char, data_char, peripheral, stream)
-                    .await
+                match smart_bike_trainer::handle_peripheral(peripheral, stream, control_char).await
                 {
                     Ok(_) => {}
                     Err(error) => {

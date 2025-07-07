@@ -49,7 +49,28 @@ pub async fn send_peripherals(
     }
 }
 
-const SMART_TRAINER_DEVICE_TYPE: &str = "smart trainer";
+pub(super) async fn handle_slope_control(devices: &Vec<BleDevice>, data: &str) -> Result<()> {
+    let slope: i16 = data[0..data.len()].parse()?; // slope% should be * 100 so 5.12% slope -> 512
+    // maybe later replace with hashmap so you don't have to iterate thru whole array
+    for device in devices {
+        if let BleDevice::SmartTrainer {
+            control_char,
+            data_char: _,
+            peripheral,
+        } = device
+        {
+            ble_device_handlers::smart_bike_trainer::set_target_slope(
+                slope,
+                peripheral,
+                control_char,
+            )
+            .await
+            .context("setting target slope")?;
+        }
+    }
+    Ok(())
+}
+
 pub(super) async fn handle_parsing_peripheral_connection(
     data: &str,
     valid_peripherals: &[btleplug::platform::Peripheral],
@@ -69,36 +90,48 @@ pub(super) async fn handle_parsing_peripheral_connection(
         .parse()
         .context("parsing index did not succeed")?;
     let peripheral = &valid_peripherals[device_index];
-    let device: BleDevice;
 
     match device_type_name {
-        SMART_TRAINER_DEVICE_TYPE => {
+        "smart trainer" => {
             info!("the peripheral type is smart trainer!");
 
-            match ble_device_handlers::smart_bike_trainer::get_smart_trainer_device(
-                peripheral.to_owned(),
-                device_index,
-            )
-            .await
-            {
-        "hr tracker" => {
-            match ble_device_handlers::hr_tracker::get_device(peripheral.to_owned()).await {
-                Ok(val) => {
-                    device = val;
+            match ble_device_handlers::smart_bike_trainer::get_device(peripheral.to_owned()).await {
+                Ok(device) => {
+                    info!(
+                        "Successfully connected to device! sending connection information thru tcp"
+                    );
+                    device_tcp_parser::send_device_connection_information(
+                        stream,
+                        device_index,
+                        device_type_name,
+                    )
+                    .await;
+                    Ok(Some(device))
                 }
-                Err(error) => {
-                    error!("getting smart trainer device returned error: {error}");
-                    return Ok(None);
+                Err(err) => {
+                    error!("getting smart trainer device returned error: {err}");
+                    Ok(None)
                 }
             }
         }
-        default => {
-            return Err(anyhow!("device name was not recognized: {default}"));
+        "hr tracker" => {
+            match ble_device_handlers::hr_tracker::get_device(peripheral.to_owned()).await {
+                Ok(device) => {
+                    device_tcp_parser::send_device_connection_information(
+                        stream,
+                        device_index,
+                        device_type_name,
+                    )
+                    .await;
+
+                    Ok(Some(device))
+                }
+                Err(err) => {
+                    error!("getting hr tracker device returned error: {err}");
+                    Ok(None)
+                }
+            }
         }
+        default => Err(anyhow!("device name was not recognized: {default}")),
     }
-    // only if connection to device succeed
-    info!("Successfully connected to device! sending connection information thru tcp");
-    device_tcp_parser::send_device_connection_information(stream, device_index, device_type_name)
-        .await;
-    Ok(Some(device))
 }

@@ -51,9 +51,13 @@ async fn main() {
             let splitted_data = raw_data.split('\n');
 
             for data in splitted_data {
-                if let Some(device) =
-                    tcp_parser::handle_data_input_from_tcp(data, &valid_peripherals, &mut stream)
-                        .await
+                if let Some(device) = tcp_parser::handle_data_input_from_tcp(
+                    data,
+                    &valid_peripherals,
+                    &devices,
+                    &mut stream,
+                )
+                .await
                 {
                     info!("new device was added: {:?}", devices);
                     devices.push(device);
