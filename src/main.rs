@@ -1,27 +1,24 @@
 mod ble_device_handlers;
 mod logs;
 mod tcp;
-use ble_device_handlers::BleDevice;
-use btleplug::api::BDAddr;
-use btleplug::api::Peripheral;
-use spdlog::prelude::*;
-use std::collections::HashMap;
 use std::collections::HashSet;
-use tcp::create_stream;
+use std::time::Duration;
+
+use ble_device_handlers::DeviceContainer;
+use ble_device_handlers::smart_bike_trainer;
+use btleplug::api::BDAddr;
+use btleplug::api::Central;
+use spdlog::prelude::*;
 use tcp::read_tcp_data;
 use tcp::tcp_parser;
+use tokio::sync::mpsc::Sender;
+use tokio::time::sleep;
 #[tokio::main]
 async fn main() {
     logs::setup_logger();
     info!("Init rust ble handler");
 
-    let mut stream = match create_stream().await {
-        Ok(o) => o,
-        Err(e) => {
-            error!("creating tcp listener did not succeed because:{e:?}");
-            panic!()
-        }
-    };
+    let (mut tcp_reader, tcp_writer_sender) = tcp::setup_tcp().await;
 
     let adapter = match ble_device_handlers::start_scan().await {
         Ok(o) => o,
@@ -32,37 +29,54 @@ async fn main() {
     };
     let mut old_peripherals_mac_address: HashSet<BDAddr> = HashSet::new();
     let mut valid_peripherals: Vec<btleplug::platform::Peripheral> = Vec::new();
-    let mut devices: Vec<BleDevice> = Vec::new();
+    let mut device_container = ble_device_handlers::DeviceContainer {
+        smart_trainer: None,
+        hr_tracker: None,
+    };
+
     loop {
-        let peripherals = ble_device_handlers::get_found_peripherals(&adapter).await;
+        let peripherals = adapter.peripherals().await.unwrap();
 
-        ble_device_handlers::handle_devices(&devices, &valid_peripherals, &mut stream).await;
+        tokio::spawn(handle_devices(
+            device_container.clone(),
+            tcp_writer_sender.clone(),
+        ));
 
-        tcp::peripherals_tcp_parser::send_peripherals(
-            &mut stream,
+        tcp::peripherals_tcp_parser::send_found_peripherals(
+            tcp_writer_sender.clone(),
             &peripherals,
             &mut valid_peripherals,
             &mut old_peripherals_mac_address,
         )
         .await;
-        let tcp_output = read_tcp_data(&mut stream);
-
+        let tcp_output = read_tcp_data(&mut tcp_reader);
         if let Some(raw_data) = tcp_output {
             let splitted_data = raw_data.split('\n');
 
             for data in splitted_data {
-                if let Some(device) = tcp_parser::handle_data_input_from_tcp(
+                tcp_parser::handle_data_input_from_tcp(
                     data,
                     &valid_peripherals,
-                    &devices,
-                    &mut stream,
+                    &mut device_container,
+                    tcp_writer_sender.clone(),
                 )
                 .await
-                {
-                    info!("new device was added: {:?}", devices);
-                    devices.push(device);
-                };
             }
+        }
+
+        sleep(Duration::from_millis(1)).await;
+    }
+}
+async fn handle_devices(device_container: DeviceContainer, tcp_writer_sender: Sender<String>) {
+    if let Some(smart_trainer) = device_container.smart_trainer.to_owned() {
+        if let Err(err) =
+            smart_bike_trainer::handle_peripheral(&smart_trainer.peripheral, tcp_writer_sender)
+                .await
+        {
+            error!(
+                "error occurred while handling smart trainer device peripheral{}",
+                err
+            );
         }
     }
 }
