@@ -70,9 +70,11 @@ async fn main() {
 }
 async fn handle_devices(device_container: DeviceContainer, tcp_writer_sender: Sender<String>) {
     if let Some(smart_trainer) = device_container.smart_trainer.to_owned() {
-        if let Err(err) =
-            smart_bike_trainer::handle_peripheral(&smart_trainer.peripheral, tcp_writer_sender.to_owned())
-                .await
+        if let Err(err) = smart_bike_trainer::handle_peripheral(
+            &smart_trainer.peripheral,
+            tcp_writer_sender.to_owned(),
+        )
+        .await
         {
             error!(
                 "error occurred while handling smart trainer device peripheral{}",
