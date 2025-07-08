@@ -29,7 +29,7 @@ pub async fn handle_peripheral(
     if let Some(notification) = notifications.next().await {
         let output_data = parse_data(&notification.value);
         let current_power = output_data.0;
-        let cadence = output_data.1;
+        let cadence = output_data.1 * 2;
         let wheel_rotation = output_data.2;
 
         tcp_parser::send_bike_trainer_data(
