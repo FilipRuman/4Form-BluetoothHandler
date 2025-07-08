@@ -1,99 +1,98 @@
-use anyhow::Error;
 use btleplug::api::{Characteristic, Peripheral, WriteType, bleuuid::uuid_from_u16};
 use futures::StreamExt;
-use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 use crate::{ble_device_handlers::*, tcp_parser};
-use spdlog::prelude;
-
-pub(crate) fn parse_indoor_bike_data(data: &[u8]) -> (u16, u16) {
-    // println!("data: {:?}", data);
-
-    let flags = u16::from_le_bytes([data[0], data[1]]);
-    //     println!("Flags: {:016b}", flags);
-
-    // cadence -> obviously not right has to be something like flywheal rotation speed / resistance
-    let cadence = u16::from_le_bytes([data[2], data[3]]);
-
-    // Power -> Seems right but not accurate to ftms spec  XD
-    let power = u16::from_le_bytes([data[6], data[7]]);
-
-    (power, cadence)
+#[derive(Clone)]
+pub struct SmartTrainer {
+    pub control_char: Characteristic,
+    // try changing that to value
+    pub peripheral: btleplug::platform::Peripheral,
 }
 
-pub async fn handle_smart_trainer_peripheral(
-    control_char: &Characteristic,
-    data_char: &Characteristic,
+pub(crate) fn parse_data(data: &[u8]) -> (u16, u16, u16) {
+    // Seems right but not accurate to ftms spec  XD
+    let wheel_rotation = u16::from_le_bytes([data[2], data[3]]);
+    let cadence = u16::from_le_bytes([data[4], data[5]]);
+
+    let power = u16::from_le_bytes([data[6], data[7]]);
+
+    (power, cadence, wheel_rotation)
+}
+
+pub async fn handle_peripheral(
     peripheral: &btleplug::platform::Peripheral,
-    stream: &mut TcpStream,
+    tcp_writer_sender: Sender<String>,
 ) -> Result<()> {
     let mut notifications = peripheral.notifications().await?;
-    while let Some(notification) = notifications.next().await {
-        let output_data = parse_indoor_bike_data(&notification.value);
+    if let Some(notification) = notifications.next().await {
+        let output_data = parse_data(&notification.value);
         let current_power = output_data.0;
-        let cadence = output_data.1;
+        let cadence = output_data.1 * 2;
+        let wheel_rotation = output_data.2;
 
-        // println!(
-        //     "output_data: current_power: {} cadence: {}",
-        //     current_power, cadence
-        // );
-        tcp_parser::send_bike_trainer_data(stream, current_power, cadence).await;
-
-        // println!("Send all data over tcp!");
+        tcp_parser::send_bike_trainer_data(
+            tcp_writer_sender,
+            current_power,
+            cadence,
+            wheel_rotation,
+        )
+        .await;
     }
     Ok(())
 }
 const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
 const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
-pub async fn get_smart_trainer_device(
-    peripheral: btleplug::platform::Peripheral,
-    peripheral_index: usize,
-) -> Result<BleDevice> {
-    info!("Connected smart trainer! {peripheral:?}");
+pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<SmartTrainer> {
     connect_to_peripheral(&peripheral)
         .await
         .context("connecting to smart trainer")?;
+
+    info!("Connected smart trainer! {peripheral:?}");
 
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral)
         .context("Control Point characteristic not found")?;
     let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &peripheral)
         .context("Data read characteristic not found")?;
 
-    let start_cmd = vec![0x07]; // 0x07 = Start or Resume Training
-    peripheral
-        .write(&control_char, &start_cmd, WriteType::WithResponse)
-        .await
-        .context("starting training command:")?;
-
     peripheral
         .subscribe(&data_char)
         .await
         .context("subscribing to trainer data notifications")?;
-    Ok(BleDevice::SmartTrainer {
+
+    peripheral
+        .write(&control_char, &[0x00], WriteType::WithResponse)
+        .await
+        .context("request control command:")?;
+    peripheral
+        .write(&control_char, &[0x07], WriteType::WithResponse)
+        .await
+        .context("starting training command:")?;
+
+    Ok(SmartTrainer {
         control_char,
-        data_char,
-        peripheral_index,
+        peripheral,
     })
 }
+pub async fn set_target_slope(data: String, trainer_device: SmartTrainer) -> Result<()> {
+    let slope: i16 = data[1..data.len()].parse()?; // slope% should be * 100 so 5.12% slope -> 512
 
-async fn set_target_power(
-    target_power: u16,
-
-    peripheral: &btleplug::platform::Peripheral,
-    control_char: &Characteristic,
-) {
-    let cmd = vec![
-        0x04, // Opcode: Set Target Power
-        (target_power & 0xFF) as u8,
-        (target_power >> 8) as u8,
+    let target = slope;
+    let payload = vec![
+        0x05,                         // Set Target Inclination opcode
+        (target & 0xFF) as u8,        // LSB
+        ((target >> 8) & 0xFF) as u8, // MSB
     ];
-    println!("Sending resistance command");
-    let res = peripheral
-        .write(&control_char, &cmd, WriteType::WithResponse)
-        .await;
-    match res {
-        Ok(_) => println!("Write successful"),
-        Err(e) => println!("Write failed: {:?}", e),
-    }
+    trainer_device
+        .peripheral
+        .write(
+            &trainer_device.control_char,
+            &payload,
+            WriteType::WithoutResponse,
+        )
+        .await?;
+
+    info!("successfully set target slope: {}% ", slope as f32 / 100f32,);
+    Ok(())
 }
