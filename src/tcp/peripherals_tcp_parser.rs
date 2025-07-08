@@ -1,16 +1,16 @@
-use crate::ble_device_handlers;
-
+use crate::ble_device_handlers::{self, DeviceContainer};
+use crate::smart_bike_trainer::SmartTrainer;
 use crate::tcp::device_tcp_parser;
-use crate::{ble_device_handlers::BleDevice, tcp};
 use anyhow::{Context, Result, anyhow};
 use btleplug::api::{BDAddr, Peripheral};
 use regex::{self, Regex};
 use spdlog::prelude::*;
 use std::collections::HashSet;
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 
-pub async fn send_peripherals(
-    stream: &mut TcpStream,
+pub async fn send_found_peripherals(
+    tcp_writer_sender: Sender<String>,
     peripherals: &[btleplug::platform::Peripheral],
     valid_peripherals: &mut Vec<btleplug::platform::Peripheral>,
     old_peripherals_adresses: &mut HashSet<BDAddr>,
@@ -40,7 +40,9 @@ pub async fn send_peripherals(
             None => "unknown".to_string(),
         };
 
-        tcp::send_tcp_data(stream, format!("i|{}|[{}]", name, peripheral_index)).await;
+        tcp_writer_sender
+            .send(format!("i|{}|[{}]", name, peripheral_index))
+            .await;
         println!(
             "send_peripherals: peripheral id:{} {:?}",
             peripheral.id(),
@@ -49,33 +51,12 @@ pub async fn send_peripherals(
     }
 }
 
-pub(super) async fn handle_slope_control(devices: &Vec<BleDevice>, data: &str) -> Result<()> {
-    let slope: i16 = data[0..data.len()].parse()?; // slope% should be * 100 so 5.12% slope -> 512
-    // maybe later replace with hashmap so you don't have to iterate thru whole array
-    for device in devices {
-        if let BleDevice::SmartTrainer {
-            control_char,
-            data_char: _,
-            peripheral,
-        } = device
-        {
-            ble_device_handlers::smart_bike_trainer::set_target_slope(
-                slope,
-                peripheral,
-                control_char,
-            )
-            .await
-            .context("setting target slope")?;
-        }
-    }
-    Ok(())
-}
-
 pub(super) async fn handle_parsing_peripheral_connection(
     data: &str,
     valid_peripherals: &[btleplug::platform::Peripheral],
-    stream: &mut TcpStream,
-) -> Result<Option<BleDevice>> {
+    device_container: &mut DeviceContainer,
+    tcp_writer_sender: Sender<String>,
+) -> Result<()> {
     info!("handle parsing peripheral connection");
 
     // extracts name and index from data: i|Smart trainer|[3]
@@ -93,45 +74,76 @@ pub(super) async fn handle_parsing_peripheral_connection(
 
     match device_type_name {
         "smart trainer" => {
-            info!("the peripheral type is smart trainer!");
-
-            match ble_device_handlers::smart_bike_trainer::get_device(peripheral.to_owned()).await {
-                Ok(device) => {
-                    info!(
-                        "Successfully connected to device! sending connection information thru tcp"
-                    );
-                    device_tcp_parser::send_device_connection_information(
-                        stream,
-                        device_index,
-                        device_type_name,
-                    )
-                    .await;
-                    Ok(Some(device))
-                }
-                Err(err) => {
-                    error!("getting smart trainer device returned error: {err}");
-                    Ok(None)
-                }
-            }
+            smart_trainer(
+                device_container,
+                device_type_name,
+                device_index,
+                peripheral,
+                tcp_writer_sender,
+            )
+            .await;
         }
         "hr tracker" => {
-            match ble_device_handlers::hr_tracker::get_device(peripheral.to_owned()).await {
-                Ok(device) => {
-                    device_tcp_parser::send_device_connection_information(
-                        stream,
-                        device_index,
-                        device_type_name,
-                    )
-                    .await;
-
-                    Ok(Some(device))
-                }
-                Err(err) => {
-                    error!("getting hr tracker device returned error: {err}");
-                    Ok(None)
-                }
-            }
+            hr_tracker(
+                tcp_writer_sender,
+                device_container,
+                device_type_name,
+                device_index,
+                peripheral,
+            )
+            .await;
         }
-        default => Err(anyhow!("device name was not recognized: {default}")),
+        default => return Err(anyhow!("device name was not recognized: {default}")),
+    }
+
+    Ok(())
+}
+
+async fn hr_tracker(
+    tcp_writer_sender: Sender<String>,
+    device_container: &mut DeviceContainer,
+    device_type_name: &str,
+    device_index: usize,
+    peripheral: &btleplug::platform::Peripheral,
+) {
+    match ble_device_handlers::hr_tracker::get_device(peripheral.to_owned()).await {
+        Ok(device) => {
+            device_tcp_parser::send_device_connection_information(
+                tcp_writer_sender,
+                device_index,
+                device_type_name,
+            )
+            .await;
+
+            device_container.hr_tracker = Some(device);
+        }
+        Err(err) => {
+            error!("getting hr tracker device returned error: {err}");
+        }
+    }
+}
+
+async fn smart_trainer(
+    device_container: &mut DeviceContainer,
+    device_type_name: &str,
+    device_index: usize,
+    peripheral: &btleplug::platform::Peripheral,
+    tcp_writer_sender: Sender<String>,
+) {
+    match ble_device_handlers::smart_bike_trainer::get_device(peripheral.to_owned()).await {
+        Ok(device) => {
+            info!("Successfully connected to device! sending connection information thru tcp");
+            device_tcp_parser::send_device_connection_information(
+                tcp_writer_sender,
+                device_index,
+                device_type_name,
+            )
+            .await;
+
+            device_container.smart_trainer = Some(device);
+        }
+        Err(err) => {
+            error!("getting smart trainer device returned error: {err}");
+        }
     }
 }

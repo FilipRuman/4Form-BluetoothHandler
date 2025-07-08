@@ -1,10 +1,15 @@
-use anyhow::Ok;
 use btleplug::api::{Characteristic, Peripheral, WriteType, bleuuid::uuid_from_u16};
 use futures::StreamExt;
-use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 use crate::{ble_device_handlers::*, tcp_parser};
+#[derive(Clone)]
+pub struct SmartTrainer {
+    pub control_char: Characteristic,
+    // try changing that to value
+    pub peripheral: btleplug::platform::Peripheral,
+}
 
 pub(crate) fn parse_data(data: &[u8]) -> (u16, u16, u16) {
     // Seems right but not accurate to ftms spec  XD
@@ -18,23 +23,28 @@ pub(crate) fn parse_data(data: &[u8]) -> (u16, u16, u16) {
 
 pub async fn handle_peripheral(
     peripheral: &btleplug::platform::Peripheral,
-    stream: &mut TcpStream,
-    control_char: &Characteristic,
+    tcp_writer_sender: Sender<String>,
 ) -> Result<()> {
     let mut notifications = peripheral.notifications().await?;
-    while let Some(notification) = notifications.next().await {
+    if let Some(notification) = notifications.next().await {
         let output_data = parse_data(&notification.value);
         let current_power = output_data.0;
         let cadence = output_data.1;
         let wheel_rotation = output_data.2;
 
-        tcp_parser::send_bike_trainer_data(stream, current_power, cadence, wheel_rotation).await;
+        tcp_parser::send_bike_trainer_data(
+            tcp_writer_sender,
+            current_power,
+            cadence,
+            wheel_rotation,
+        )
+        .await;
     }
     Ok(())
 }
 const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
 const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
-pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<BleDevice> {
+pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<SmartTrainer> {
     connect_to_peripheral(&peripheral)
         .await
         .context("connecting to smart trainer")?;
@@ -59,32 +69,30 @@ pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<Bl
         .write(&control_char, &[0x07], WriteType::WithResponse)
         .await
         .context("starting training command:")?;
-    set_target_slope(20, &peripheral, &control_char)
-        .await
-        .context("setting target slope")?;
-    Ok(BleDevice::SmartTrainer {
+
+    Ok(SmartTrainer {
         control_char,
-        data_char,
         peripheral,
     })
 }
-pub async fn set_target_slope(
-    slope_percent: i16,
-    peripheral: &btleplug::platform::Peripheral,
-    control_char: &Characteristic,
-) -> Result<()> {
-    let target = slope_percent;
+pub async fn set_target_slope(data: String, trainer_device: SmartTrainer) -> Result<()> {
+    let slope: i16 = data[1..data.len()].parse()?; // slope% should be * 100 so 5.12% slope -> 512
+
+    let target = slope;
     let payload = vec![
         0x05,                         // Set Target Inclination opcode
         (target & 0xFF) as u8,        // LSB
         ((target >> 8) & 0xFF) as u8, // MSB
     ];
-    let response = peripheral
-        .write(control_char, &payload, WriteType::WithResponse)
+    trainer_device
+        .peripheral
+        .write(
+            &trainer_device.control_char,
+            &payload,
+            WriteType::WithoutResponse,
+        )
         .await?;
-    info!(
-        "successfully set target slope: {}% response: {:?}",
-        slope_percent, response
-    );
+
+    info!("successfully set target slope: {}% ", slope as f32 / 100f32,);
     Ok(())
 }
