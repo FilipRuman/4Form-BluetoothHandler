@@ -1,6 +1,7 @@
-use tokio::net::TcpStream;
+use btleplug::api::Characteristic;
+use tokio::sync::mpsc::Sender;
 
-use crate::ble_device_handlers::{BleDevice, connect_to_peripheral};
+use crate::ble_device_handlers::connect_to_peripheral;
 use crate::tcp::tcp_parser;
 use anyhow::Context;
 use anyhow::Ok;
@@ -9,10 +10,14 @@ use btleplug::api::Peripheral;
 use futures::StreamExt;
 use spdlog::info;
 use uuid::Uuid;
-
-pub async fn get_device(
+#[derive(Clone)]
+pub struct HRTracker {
+    hr_char: Characteristic,
+    // try changing that to value
     peripheral: btleplug::platform::Peripheral,
-) -> Result<BleDevice> {
+}
+
+pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<HRTracker> {
     connect_to_peripheral(&peripheral)
         .await
         .context("connecting to smart watch")?;
@@ -37,7 +42,7 @@ pub async fn get_device(
         .context("heart rate service doesn't have needed characteristic")?;
     peripheral.subscribe(hr_char).await?;
 
-    Ok(BleDevice::HRTracker{
+    Ok(HRTracker {
         hr_char: hr_char.to_owned(),
         peripheral,
     })
@@ -45,14 +50,15 @@ pub async fn get_device(
 
 pub async fn handle_peripheral(
     peripheral: &btleplug::platform::Peripheral,
-    stream: &mut TcpStream,
+
+    mut tcp_writer_sender: Sender<String>,
 ) -> Result<()> {
     let mut notifications = peripheral.notifications().await?;
     while let Some(notification) = notifications.next().await {
         let option_output = parse_data(&notification.value);
 
         if let Some(hr) = option_output {
-            tcp_parser::send_smart_watch_data(stream, hr).await;
+            tcp_parser::send_smart_watch_data(&mut tcp_writer_sender, hr).await;
         }
     }
     Ok(())

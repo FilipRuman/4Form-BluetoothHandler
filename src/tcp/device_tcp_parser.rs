@@ -1,13 +1,14 @@
-use crate::tcp;
-use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 pub async fn send_device_connection_information(
-    stream: &mut TcpStream,
+    tcp_writer_sender: Sender<String>,
     index: usize,
     device_type_name: &str,
 ) {
-    tcp::send_tcp_data(stream, format!("o|{}|[{}]", device_type_name, index)).await;
+    tcp_writer_sender
+        .send(format!("o|{}|[{}]", device_type_name, index))
+        .await;
 }
-pub async fn send_bike_trainer_data(stream: &mut TcpStream, power: u16, cadence: u16) {
-    tcp::send_tcp_data(stream, format!("p{}", power)).await;
-    tcp::send_tcp_data(stream, format!("c{}", cadence)).await;
+pub async fn send_bike_trainer_data(tcp_writer_sender: Sender<String>, power: u16, cadence: u16) {
+    tcp_writer_sender.send(format!("p{}", power)).await;
+    tcp_writer_sender.send(format!("c{}", cadence)).await;
 }
