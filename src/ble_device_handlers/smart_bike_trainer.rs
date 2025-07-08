@@ -43,6 +43,7 @@ pub async fn handle_peripheral(
     Ok(())
 }
 const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
+const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
 pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<SmartTrainer> {
     connect_to_peripheral(&peripheral)
         .await
@@ -52,6 +53,14 @@ pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<Sm
 
     let control_char = get_characteristic_with_uuid(FTMS_CONTROL_POINT, &peripheral)
         .context("Control Point characteristic not found")?;
+    let data_char = get_characteristic_with_uuid(FTMS_DATA_READ_POINT, &peripheral)
+        .context("Data read characteristic not found")?;
+
+    peripheral
+        .subscribe(&data_char)
+        .await
+        .context("subscribing to trainer data notifications")?;
+
     peripheral
         .write(&control_char, &[0x00], WriteType::WithResponse)
         .await
