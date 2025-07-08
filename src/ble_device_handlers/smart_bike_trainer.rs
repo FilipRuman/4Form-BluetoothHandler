@@ -44,6 +44,7 @@ pub async fn handle_peripheral(
 }
 const FTMS_CONTROL_POINT: Uuid = uuid_from_u16(0x2AD9);
 const FTMS_DATA_READ_POINT: Uuid = uuid_from_u16(0x2AD2);
+
 pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<SmartTrainer> {
     connect_to_peripheral(&peripheral)
         .await
