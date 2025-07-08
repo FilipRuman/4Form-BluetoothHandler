@@ -12,9 +12,9 @@ use spdlog::info;
 use uuid::Uuid;
 #[derive(Clone)]
 pub struct HRTracker {
-    hr_char: Characteristic,
+    pub hr_char: Characteristic,
     // try changing that to value
-    peripheral: btleplug::platform::Peripheral,
+    pub peripheral: btleplug::platform::Peripheral,
 }
 
 pub async fn get_device(peripheral: btleplug::platform::Peripheral) -> Result<HRTracker> {

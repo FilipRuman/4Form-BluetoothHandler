@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use ble_device_handlers::DeviceContainer;
+use ble_device_handlers::hr_tracker;
 use ble_device_handlers::smart_bike_trainer;
 use btleplug::api::BDAddr;
 use btleplug::api::Central;
@@ -70,11 +71,23 @@ async fn main() {
 async fn handle_devices(device_container: DeviceContainer, tcp_writer_sender: Sender<String>) {
     if let Some(smart_trainer) = device_container.smart_trainer.to_owned() {
         if let Err(err) =
-            smart_bike_trainer::handle_peripheral(&smart_trainer.peripheral, tcp_writer_sender)
+            smart_bike_trainer::handle_peripheral(&smart_trainer.peripheral, tcp_writer_sender.to_owned())
                 .await
         {
             error!(
                 "error occurred while handling smart trainer device peripheral{}",
+                err
+            );
+        }
+    }
+
+    if let Some(hr_tracker) = device_container.hr_tracker.to_owned() {
+        if let Err(err) =
+            hr_tracker::handle_peripheral(&hr_tracker.peripheral, tcp_writer_sender.to_owned())
+                .await
+        {
+            error!(
+                "error occurred while handling hr tracking device peripheral{}",
                 err
             );
         }
